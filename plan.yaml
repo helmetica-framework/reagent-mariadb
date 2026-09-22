@@ -1,0 +1,97 @@
+11.8-xsmall:
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+    requests:
+      cpu: 250m
+      memory: 1500Mi
+  persistence: 10Gi
+  wsrepProviderOptions:
+    repl.max_ws_size: "134217728"
+    gcache.size: 512M
+    gcs.fc_limit: "8"
+  mariadbConfiguration: |
+    [mariadb]
+      innodb-buffer-pool-size=300M
+      key-buffer-size=64K
+      max-allowed-packet=128M
+      max-heap-table-size=1M
+11.8-small:
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 2500Mi
+    requests:
+      cpu: 250m
+      memory: 1875Mi
+  persistence: 20Gi
+  wsrepProviderOptions:
+    repl.max_ws_size: "268435456"
+    gcache.size: 512M
+    gcs.fc_limit: "16"
+  mariadbConfiguration: |
+    [mariadb]
+      innodb-buffer-pool-size=1000M
+      key-buffer-size=64K
+      max-allowed-packet=256M
+      max-heap-table-size=2M
+11.8-medium:
+  resources:
+    limits:
+      cpu: 2000m
+      memory: 4Gi
+    requests:
+      cpu: 500m
+      memory: 3Gi
+  persistence: 40Gi
+  wsrepProviderOptions:
+    repl.max_ws_size: "536870912"
+    gcache.size: 512M
+    gcs.fc_limit: "32"
+  mariadbConfiguration: |
+    [mariadb]
+      innodb-buffer-pool-size=2400M
+      key-buffer-size=64K
+      max-allowed-packet=256M
+      max-heap-table-size=2M
+11.8-large:
+  resources:
+    limits:
+      cpu: 4000m
+      memory: 8Gi
+    requests:
+      cpu: 1000m
+      memory: 6Gi
+  persistence: 80Gi
+  wsrepProviderOptions:
+    repl.max_ws_size: "1073741824"
+    gcache.size: 1G
+    gcs.fc_limit: "64"
+  mariadbConfiguration: |
+    [mariadb]
+      innodb-buffer-pool-size=4800M
+      key-buffer-size=64K
+      max-allowed-packet=256M
+      max-heap-table-size=2M
+11.8-xlarge:
+  resources:
+    limits:
+      cpu: 8000m
+      memory: 24Gi
+    requests:
+      cpu: 2000m
+      memory: 18Gi
+  persistence: 240Gi
+  wsrepProviderOptions:
+    repl.max_ws_size: "2147483647"
+    gcache.size: 3G
+    gcs.fc_limit: "192"
+  mariadbConfiguration: |
+    [mariadb]
+      innodb-buffer-pool-size=14400M
+      key-buffer-size=64K
+      max-allowed-packet=256M
+      max-heap-table-size=2M
+      thread-pool-size=8
+      max-connections=2000

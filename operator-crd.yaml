@@ -1,0 +1,643 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    chrysopoeia.io/artifact-ref-apiVersion: source.toolkit.fluxcd.io/v1
+    chrysopoeia.io/artifact-ref-generation: "1"
+    chrysopoeia.io/artifact-ref-kind: OCIRepository
+    chrysopoeia.io/artifact-ref-lastUpdateTime: "2026-10-13T11:45:17Z"
+    chrysopoeia.io/artifact-ref-name: mariadb-operator-v26
+    chrysopoeia.io/artifact-ref-namespace: hel-chrysopoeia
+    chrysopoeia.io/artifact-ref-revision: 26.10.1@sha256:2bdee35e0c6f29e86a7f3ba4107bc9805bd6d9edf129e0ec761fea89a83d8ab4
+    chrysopoeia.io/source-ref-apiVersion: helmetica.io/v1
+    chrysopoeia.io/source-ref-kind: CustomResourceDefinitionSource
+    chrysopoeia.io/source-ref-name: v26.mariadb-operator
+    chrysopoeia.io/source-ref-namespace: hel-chrysopoeia
+  creationTimestamp: "2026-10-13T11:45:17Z"
+  finalizers:
+  - chrysopoeia.io/revision-controller-cleanup
+  generation: 1
+  labels:
+    chrysopoeia.io/managed: ""
+  name: mariadboperators.v26.mariadb-operator.helmetica-bundles.io
+  resourceVersion: "7984"
+  uid: 15620ba8-fc67-4a26-bf6a-b8afe4a591ce
+spec:
+  conversion:
+    strategy: None
+  group: v26.mariadb-operator.helmetica-bundles.io
+  names:
+    categories:
+    - all
+    - claim
+    - helmetica
+    kind: MariaDBOperator
+    listKind: MariaDBOperatorList
+    plural: mariadboperators
+    singular: mariadboperator
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .status.instanceNamespace
+      name: Instance Namespace
+      type: string
+    - jsonPath: .status.releaseStatus
+      name: Status
+      type: string
+    - jsonPath: .status.driftDetected
+      name: Drift
+      type: boolean
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: bundle
+    schema:
+      openAPIV3Schema:
+        properties:
+          spec:
+            description: Configures the desired state of the service.
+            properties:
+              approval:
+                default:
+                  strategy: Automatic
+                description: Approval contains the approval strategy for the service.
+                properties:
+                  strategy:
+                    default: Automatic
+                    description: The approval strategy for the service. Can be either
+                      'Automatic' or 'Manual'.
+                    enum:
+                    - Automatic
+                    - Manual
+                    type: string
+                type: object
+              manages:
+                default:
+                - dependencyGroup:
+                    name: mariadb
+                description: The dependency group whose CRDs the operator of this
+                  service manages.
+                items:
+                  properties:
+                    dependencyGroup:
+                      properties:
+                        as:
+                          description: Overrides the name the scope label is built
+                            from, so that a second deployment of the same operator
+                            can serve a separate set of consumers.
+                          type: string
+                        name:
+                          description: The name of the DependencyGroup.
+                          type: string
+                      required:
+                      - name
+                      type: object
+                  required:
+                  - dependencyGroup
+                  type: object
+                type: array
+              ociUrl:
+                default: oci://ghcr.io/mariadb-operator/charts/mariadb-operator
+                description: The OCI repository where the service bundle is stored.
+                type: string
+              provides:
+                description: The list of dependency groups whose CRDs this service
+                  ships.
+                items:
+                  properties:
+                    dependencyGroup:
+                      properties:
+                        as:
+                          description: Overrides the name the scope label is built
+                            from, so that a second deployment of the same operator
+                            can serve a separate set of consumers.
+                          type: string
+                        name:
+                          description: The name of the DependencyGroup.
+                          type: string
+                      required:
+                      - name
+                      type: object
+                  required:
+                  - dependencyGroup
+                  type: object
+                type: array
+              requires:
+                description: The list of dependency groups that this service consumes.
+                items:
+                  properties:
+                    dependencyGroup:
+                      properties:
+                        as:
+                          description: Overrides the name the scope label is built
+                            from, so that a second deployment of the same operator
+                            can serve a separate set of consumers.
+                          type: string
+                        name:
+                          description: The name of the DependencyGroup.
+                          type: string
+                      required:
+                      - name
+                      type: object
+                  required:
+                  - dependencyGroup
+                  type: object
+                type: array
+              values:
+                description: This field together with the `.spec.version` field defines
+                  the configuration of the service. Every change to either of these
+                  two fields creates a new revision of the service.
+                properties:
+                  certController:
+                    properties:
+                      caLifetime:
+                        description: -- CA certificate lifetime. It must be greater
+                          than certLifetime.
+                        type: string
+                      certLifetime:
+                        description: -- Certificate lifetime.
+                        type: string
+                      enabled:
+                        description: -- Specifies whether the cert-controller should
+                          be created.
+                        type: boolean
+                      ha:
+                        properties:
+                          enabled:
+                            description: -- Enable high availability
+                            type: boolean
+                          replicas:
+                            description: -- Number of replicas
+                            type: integer
+                        type: object
+                      image:
+                        properties:
+                          pullPolicy:
+                            type: string
+                          repository:
+                            type: string
+                          tag:
+                            description: -- Image tag to use. By default the chart
+                              appVersion is used
+                            type: string
+                        type: object
+                      pdb:
+                        properties:
+                          enabled:
+                            description: -- Enable PodDisruptionBudget for the cert-controller.
+                            type: boolean
+                          maxUnavailable:
+                            description: -- Maximum number of unavailable Pods. You
+                              may also give a percentage, like `50%`
+                            type: integer
+                        type: object
+                      priorityClassName:
+                        description: -- priorityClassName to add to cert-controller
+                          container
+                        type: string
+                      renewBeforePercentage:
+                        description: -- How long before the certificate expiration
+                          should the renewal process be triggered. For example, if
+                          a certificate is valid for 60 minutes, and renewBeforePercentage=25,
+                          cert-controller will begin to attempt to renew the certificate
+                          45 minutes after it was issued (i.e. when there are 15 minutes
+                          (25%) remaining until the certificate is no longer valid).
+                        type: integer
+                      requeueDuration:
+                        description: -- Requeue duration to ensure that certificate
+                          gets renewed.
+                        type: string
+                      revisionHistoryLimit:
+                        description: -- Specifies the amount of historic ReplicaSets
+                          k8s should keep (see https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#clean-up-policy)
+                        type: integer
+                      serviceAccount:
+                        properties:
+                          automount:
+                            description: -- Automounts the service account token in
+                              all containers of the Pod
+                            type: boolean
+                          enabled:
+                            description: -- Specifies whether a service account should
+                              be created
+                            type: boolean
+                          name:
+                            description: |-
+                              -- The name of the service account to use.
+                              If not set and enabled is true, a name is generated using the fullname template
+                            type: string
+                        type: object
+                      serviceMonitor:
+                        properties:
+                          enabled:
+                            description: -- Enable cert-controller ServiceMonitor.
+                              Metrics must be enabled
+                            type: boolean
+                          interval:
+                            description: |-
+                              release: kube-prometheus-stack
+                              --  Interval to scrape metrics
+                            type: string
+                          scrapeTimeout:
+                            description: -- Timeout if metrics can't be retrieved
+                              in given time interval
+                            type: string
+                        type: object
+                    type: object
+                  clusterName:
+                    description: -- Cluster DNS name
+                    type: string
+                  config:
+                    description: -- Operator configuration
+                    properties:
+                      exporterImage:
+                        description: -- Default MariaDB exporter image
+                        properties:
+                          repository:
+                            type: string
+                          tag:
+                            type: string
+                        type: object
+                      exporterMaxscaleImage:
+                        description: -- Default MaxScale exporter image
+                        properties:
+                          repository:
+                            type: string
+                          tag:
+                            type: string
+                        type: object
+                      galeraLibPath:
+                        description: -- Galera library path to be used with MariaDB
+                          Galera
+                        type: string
+                      mariadbDefaultVersion:
+                        description: -- Default MariaDB version to be used when unable
+                          to infer it via image tag
+                        type: string
+                      mariadbImage:
+                        description: -- Default MariaDB image
+                        properties:
+                          repository:
+                            type: string
+                          tag:
+                            type: string
+                        type: object
+                      mariadbImageName:
+                        description: -- Default MariaDB image name
+                        type: string
+                      maxscaleImage:
+                        description: -- Default MaxScale image
+                        properties:
+                          repository:
+                            type: string
+                          tag:
+                            type: string
+                        type: object
+                    type: object
+                  crds:
+                    description: -- CRDs
+                    properties:
+                      enabled:
+                        description: |-
+                          -- Whether the helm chart should create and update the CRDs. It is false by default, which implies that the CRDs must be
+                          managed independently with the mariadb-operator-crds helm chart.
+                          **WARNING** This should only be set to true during the initial deployment. If this chart manages the CRDs
+                          and is later uninstalled, all MariaDB instances will be DELETED.
+                        type: boolean
+                    type: object
+                  currentNamespaceOnly:
+                    description: -- Whether the operator should watch CRDs only in
+                      its own namespace or not.
+                    type: boolean
+                  fullnameOverride:
+                    type: string
+                  ha:
+                    properties:
+                      enabled:
+                        description: |-
+                          -- Enable high availability of the controller.
+                          If you enable it we recommend to set `affinity` and `pdb`
+                        type: boolean
+                      replicas:
+                        description: -- Number of replicas
+                        type: integer
+                    type: object
+                  image:
+                    properties:
+                      pullPolicy:
+                        type: string
+                      repository:
+                        type: string
+                      tag:
+                        description: -- Image tag to use. By default the chart appVersion
+                          is used
+                        type: string
+                    type: object
+                  logLevel:
+                    description: -- Controller log level
+                    type: string
+                  metrics:
+                    properties:
+                      enabled:
+                        description: -- Enable operator internal metrics. Prometheus
+                          must be installed in the cluster
+                        type: boolean
+                      serviceMonitor:
+                        properties:
+                          enabled:
+                            description: -- Enable controller ServiceMonitor
+                            type: boolean
+                          interval:
+                            description: |-
+                              release: kube-prometheus-stack
+                              --  Interval to scrape metrics
+                            type: string
+                          scrapeTimeout:
+                            description: -- Timeout if metrics can't be retrieved
+                              in given time interval
+                            type: string
+                        type: object
+                    type: object
+                  nameOverride:
+                    type: string
+                  pdb:
+                    properties:
+                      enabled:
+                        description: -- Enable PodDisruptionBudget for the controller.
+                        type: boolean
+                      maxUnavailable:
+                        description: -- Maximum number of unavailable Pods. You may
+                          also give a percentage, like `50%`
+                        type: integer
+                    type: object
+                  pprof:
+                    properties:
+                      enabled:
+                        description: -- Enable the pprof HTTP server.
+                        type: boolean
+                      port:
+                        description: -- The port where the pprof HTTP server listens.
+                        type: integer
+                    type: object
+                  priorityClassName:
+                    description: -- priorityClassName to add to controller Pod
+                    type: string
+                  rbac:
+                    properties:
+                      aggregation:
+                        properties:
+                          enabled:
+                            description: -- Specifies whether the cluster roles aggrate
+                              to view and edit predefinied roles
+                            type: boolean
+                        type: object
+                      enabled:
+                        description: -- Specifies whether RBAC resources should be
+                          created
+                        type: boolean
+                    type: object
+                  revisionHistoryLimit:
+                    description: -- Specifies the amount of historic ReplicaSets k8s
+                      should keep (see https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#clean-up-policy)
+                    type: integer
+                  serviceAccount:
+                    properties:
+                      automount:
+                        description: -- Automounts the service account token in all
+                          containers of the Pod
+                        type: boolean
+                      enabled:
+                        description: -- Specifies whether a service account should
+                          be created
+                        type: boolean
+                      name:
+                        description: |-
+                          -- The name of the service account to use.
+                          If not set and enabled is true, a name is generated using the fullname template
+                        type: string
+                    type: object
+                  webhook:
+                    properties:
+                      cert:
+                        properties:
+                          ca:
+                            properties:
+                              key:
+                                description: -- File under 'ca.path' that contains
+                                  the full CA trust chain.
+                                type: string
+                              path:
+                                description: -- Path that contains the full CA trust
+                                  chain.
+                                type: string
+                            type: object
+                          certManager:
+                            properties:
+                              duration:
+                                description: -- Duration to be used in the Certificate
+                                  resource,
+                                type: string
+                              enabled:
+                                description: -- Whether to use cert-manager to issue
+                                  and rotate the certificate. If set to false, mariadb-operator's
+                                  cert-controller will be used instead.
+                                type: boolean
+                              renewBefore:
+                                description: -- Renew before duration to be used in
+                                  the Certificate resource.
+                                type: string
+                              revisionHistoryLimit:
+                                description: -- The maximum number of CertificateRequest
+                                  revisions that are maintained in the Certificate’s
+                                  history.
+                                type: integer
+                            type: object
+                          path:
+                            description: -- Path where the certificate will be mounted.
+                              'tls.crt' and 'tls.key' certificates files should be
+                              under this path.
+                            type: string
+                        type: object
+                      enabled:
+                        description: -- Specifies whether the webhook should be created.
+                        type: boolean
+                      ha:
+                        properties:
+                          enabled:
+                            description: -- Enable high availability
+                            type: boolean
+                          replicas:
+                            description: -- Number of replicas
+                            type: integer
+                        type: object
+                      hostNetwork:
+                        description: -- Expose the webhook server in the host network
+                        type: boolean
+                      image:
+                        properties:
+                          pullPolicy:
+                            type: string
+                          repository:
+                            type: string
+                          tag:
+                            description: -- Image tag to use. By default the chart
+                              appVersion is used
+                            type: string
+                        type: object
+                      pdb:
+                        properties:
+                          enabled:
+                            description: -- Enable PodDisruptionBudget for the webhook.
+                            type: boolean
+                          maxUnavailable:
+                            description: -- Maximum number of unavailable Pods. You
+                              may also give a percentage, like `50%`
+                            type: integer
+                        type: object
+                      port:
+                        description: -- Port to be used by the webhook server
+                        type: integer
+                      priorityClassName:
+                        description: -- priorityClassName to add to webhook Pod
+                        type: string
+                      revisionHistoryLimit:
+                        description: -- Specifies the amount of historic ReplicaSets
+                          k8s should keep (see https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#clean-up-policy)
+                        type: integer
+                      serviceAccount:
+                        properties:
+                          automount:
+                            description: -- Automounts the service account token in
+                              all containers of the Pod
+                            type: boolean
+                          enabled:
+                            description: -- Specifies whether a service account should
+                              be created
+                            type: boolean
+                          name:
+                            description: |-
+                              -- The name of the service account to use.
+                              If not set and enabled is true, a name is generated using the fullname template
+                            type: string
+                        type: object
+                      serviceMonitor:
+                        properties:
+                          enabled:
+                            description: -- Enable webhook ServiceMonitor. Metrics
+                              must be enabled
+                            type: boolean
+                          interval:
+                            description: |-
+                              release: kube-prometheus-stack
+                              --  Interval to scrape metrics
+                            type: string
+                          scrapeTimeout:
+                            description: -- Timeout if metrics can't be retrieved
+                              in given time interval
+                            type: string
+                        type: object
+                    type: object
+                type: object
+              version:
+                description: The version of the service. Every change to this field
+                  together with the `.spec.values` field creates a new revision of
+                  the service.
+                enum:
+                - 26.10.1
+                - 26.10.0
+                - 26.6.0
+                - 26.3.0
+                type: string
+            type: object
+          status:
+            description: Status contains the observed state of the service.
+            properties:
+              appliedRevision:
+                description: The name of the revision that is currently applied to
+                  the cluster.
+                type: string
+              conditions:
+                description: Conditions holds the conditions of the service.
+                items:
+                  properties:
+                    lastTransitionTime:
+                      description: The last time the condition transitioned from one
+                        status to another.
+                      format: date-time
+                      type: string
+                    message:
+                      description: A human readable message about the last transition.
+                      type: string
+                    observedGeneration:
+                      description: The generation of the claim the condition was set
+                        from.
+                      format: int64
+                      type: integer
+                    reason:
+                      description: A programmatic identifier for the condition's last
+                        transition.
+                      type: string
+                    status:
+                      description: Status of the condition, one of True, False or
+                        Unknown.
+                      type: string
+                    type:
+                      description: Type of the condition.
+                      type: string
+                  required:
+                  - type
+                  - status
+                  - reason
+                  - message
+                  - lastTransitionTime
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              driftDetected:
+                description: Whether a drift was detected.
+                type: boolean
+              instanceNamespace:
+                description: The namespace where the service is deployed in.
+                type: string
+              latestRevision:
+                description: The name of the revision that currently matches the spec.
+                type: string
+              releaseStatus:
+                description: The current status of the service.
+                type: string
+              version:
+                description: The version the framework selected for this service.
+                  Set spec.version to pin a version instead, which takes precedence
+                  over this one.
+                type: string
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    categories:
+    - all
+    - claim
+    - helmetica
+    kind: MariaDBOperator
+    listKind: MariaDBOperatorList
+    plural: mariadboperators
+    singular: mariadboperator
+  conditions:
+  - lastTransitionTime: "2026-10-13T11:45:17Z"
+    message: no conflicts found
+    reason: NoConflicts
+    status: "True"
+    type: NamesAccepted
+  - lastTransitionTime: "2026-10-13T11:45:17Z"
+    message: the initial names have been accepted
+    reason: InitialNamesAccepted
+    status: "True"
+    type: Established
+  storedVersions:
+  - bundle
