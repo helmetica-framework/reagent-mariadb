@@ -1,0 +1,12 @@
+apiVersion: v2
+name: mariadb
+type: application
+version: 0.0.1
+dependencies:
+- alias: service
+  name: vshnmariadb
+  repository: oci://ghcr.io/vshn
+  version: 0.0.15
+- name: azoth
+  version: 0.0.2
+  repository: oci://ghcr.io/helmetica-framework

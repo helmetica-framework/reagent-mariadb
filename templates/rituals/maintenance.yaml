@@ -1,0 +1,19 @@
+apiVersion: rituals.helmetica.io/v1
+kind: Definition
+metadata:
+  name: maintenance
+  labels:
+    {{- include "mariadb.labels" . | nindent 4 }}
+spec:
+  description: "TODO: describe the weekly maintenance of this service"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+            - name: maintenance
+              # renovate: datasource=docker depName=registry.k8s.io/kubectl
+              image: registry.k8s.io/kubectl:v1.34.1
+              command: ["sleep"]
+              args: ["10"]
+          restartPolicy: Never
