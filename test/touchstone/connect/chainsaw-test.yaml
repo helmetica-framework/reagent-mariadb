@@ -1,0 +1,401 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: connect
+spec:
+  description: >-
+    End to End tests the connection to MariaDB with auth.
+    Same basic setup as the install test.
+  steps:
+    - name: install upstream crds
+      try:
+        - script:
+            content: |
+              kubectl apply -f - <<EOF
+              # Install and configure upstream MariaDB crds, operator and cluster
+              apiVersion: image.toolkit.fluxcd.io/v1
+              kind: ImageRepository
+              metadata:
+                name: mariadb-crds-v26
+                namespace: hel-chrysopoeia
+              spec:
+                exclusionList:
+                - ^.*\.sig$
+                - ^sha256-.+$
+                image: ghcr.io/mariadb-operator/charts/mariadb-operator-crds
+                interval: 12h
+                provider: generic
+              ---
+              apiVersion: source.toolkit.fluxcd.io/v1
+              kind: OCIRepository
+              metadata:
+                name: mariadb-crds-v26
+                namespace: hel-chrysopoeia
+              spec:
+                interval: 12h
+                provider: generic
+                ref:
+                  semver: 26.x
+                timeout: 60s
+                url: oci://ghcr.io/mariadb-operator/charts/mariadb-operator-crds
+              ---
+              apiVersion: image.toolkit.fluxcd.io/v1
+              kind: ImageRepository
+              metadata:
+                name: mariadb-operator-v26
+                namespace: hel-chrysopoeia
+              spec:
+                exclusionList:
+                - ^.*\.sig$
+                - ^sha256-.+$
+                image: ghcr.io/mariadb-operator/charts/mariadb-operator
+                interval: 12h
+                provider: generic
+              ---
+              apiVersion: source.toolkit.fluxcd.io/v1
+              kind: OCIRepository
+              metadata:
+                name: mariadb-operator-v26
+                namespace: hel-chrysopoeia
+              spec:
+                interval: 12h
+                provider: generic
+                ref:
+                  semver: 26.x
+                timeout: 60s
+                url: oci://ghcr.io/mariadb-operator/charts/mariadb-operator
+              ---
+              apiVersion: source.toolkit.fluxcd.io/v1
+              kind: OCIRepository
+              metadata:
+                annotations:
+                name: mariadb-cluster-v26
+                namespace: hel-chrysopoeia
+              spec:
+                interval: 12h
+                provider: generic
+                ref:
+                  semver: 26.x
+                timeout: 60s
+                url: oci://ghcr.io/mariadb-operator/charts/mariadb-cluster
+              ---
+              apiVersion: image.toolkit.fluxcd.io/v1
+              kind: ImageRepository
+              metadata:
+                name: mariadb-cluster-v26
+                namespace: hel-chrysopoeia
+              spec:
+                exclusionList:
+                - ^.*\.sig$
+                - ^sha256-.+$
+                image: ghcr.io/mariadb-operator/charts/mariadb-cluster
+                interval: 12h
+                provider: generic
+              ---
+              # Install CustomResourceDefinitionSources
+              apiVersion: helmetica.io/v1
+              kind: CustomResourceDefinitionSource
+              metadata:
+                annotations:
+                name: v26.mariadb-crds
+                namespace: hel-chrysopoeia
+              spec:
+                crdNames:
+                  kind: MariaDBOperatorCRD
+                  plural: mariadboperatorcrds
+                provides:
+                - dependencyGroup:
+                    name: mariadb
+                reference:
+                  apiVersion: source.toolkit.fluxcd.io/v1
+                  kind: OCIRepository
+                  name: mariadb-crds-v26
+                versionDiscovery:
+                  reference:
+                    apiVersion: image.toolkit.fluxcd.io/v1
+                    kind: ImageRepository
+                    name: mariadb-crds-v26
+              ---
+              apiVersion: helmetica.io/v1
+              kind: CustomResourceDefinitionSource
+              metadata:
+                annotations:
+                name: v26.mariadb-operator
+                namespace: hel-chrysopoeia
+              spec:
+                crdNames:
+                  kind: MariaDBOperator
+                  plural: mariadboperators
+                manages:
+                - dependencyGroup:
+                    name: mariadb
+                reference:
+                  apiVersion: source.toolkit.fluxcd.io/v1
+                  kind: OCIRepository
+                  name: mariadb-operator-v26
+                versionDiscovery:
+                  reference:
+                    apiVersion: image.toolkit.fluxcd.io/v1
+                    kind: ImageRepository
+                    name: mariadb-operator-v26
+              ---
+              apiVersion: helmetica.io/v1
+              kind: CustomResourceDefinitionSource
+              metadata:
+                annotations:
+                name: v26.mariadb-cluster
+                namespace: hel-chrysopoeia
+              spec:
+                crdNames:
+                  kind: MariaDBCluster
+                  plural: mariadbclusters
+                reference:
+                  apiVersion: source.toolkit.fluxcd.io/v1
+                  kind: OCIRepository
+                  name: mariadb-cluster-v26
+                requires:
+                - dependencyGroup:
+                    name: mariadb
+                versionDiscovery:
+                  reference:
+                    apiVersion: image.toolkit.fluxcd.io/v1
+                    kind: ImageRepository
+                    name: mariadb-cluster-v26
+              ---
+              # Install DependencyGroup
+              apiVersion: helmetica.io/v1
+              kind: DependencyGroup
+              metadata:
+                name: mariadb
+              spec:
+                crds:
+                - name: backups.k8s.mariadb.com
+                - name: connections.k8s.mariadb.com
+                - name: databases.k8s.mariadb.com
+                - name: externalmariadbs.k8s.mariadb.com
+                - name: grants.k8s.mariadb.com
+                - name: mariadbs.k8s.mariadb.com
+                - name: maxscales.k8s.mariadb.com
+                - name: physicalbackups.k8s.mariadb.com
+                - name: pointintimerecoveries.k8s.mariadb.com
+                - name: restores.k8s.mariadb.com
+                - name: sqljobs.k8s.mariadb.com
+                - name: users.k8s.mariadb.com
+                - name: rbac.authorization.k8s.io
+                harnessRef:
+                  kind: OperatorHarness
+                  name: mariadb
+              EOF
+              kubectl -n hel-chrysopoeia wait --for condition=Ready \
+                  "customresourcedefinitionsource/v26.mariadb-crds" --timeout 120s
+              # deploy empty mariadb crd and operator for the crds to be properly installed
+              kubectl apply -f - <<EOF
+              apiVersion: v26.mariadb-crds.helmetica-bundles.io/bundle
+              kind: MariaDBOperatorCRD
+              metadata:
+                name: mariadb-crds
+                namespace: hel-chrysopoeia
+              spec:
+                approval:
+                  strategy: Automatic
+                ociUrl: oci://ghcr.io/mariadb-operator/charts/mariadb-operator-crds
+                provides:
+                - dependencyGroup:
+                    name: mariadb
+                version: 26.6.0
+              EOF
+              kubectl -n hel-chrysopoeia wait --for=jsonpath='{.status.releaseStatus}'=Ready \
+                  "mariadboperatorcrd/mariadb-crds" --timeout 120s
+
+              kubectl apply -f - <<EOF
+              apiVersion: v26.mariadb-operator.helmetica-bundles.io/bundle
+              kind: MariaDBOperator
+              metadata:
+                name: mariadb-operator
+                namespace: hel-chrysopoeia
+              spec:
+                approval:
+                  strategy: Automatic
+                manages:
+                - dependencyGroup:
+                    name: mariadb
+                ociUrl: oci://ghcr.io/mariadb-operator/charts/mariadb-operator
+                values:
+                  certController:
+                    enabled: false
+                  rbac:
+                    enabled: false
+                  webhook:
+                    enabled: false
+                version: 26.6.0
+              EOF
+              kubectl -n hel-chrysopoeia wait --for=jsonpath='{.status.releaseStatus}'=Ready \
+                  "mariadboperator/mariadb-operator" --timeout 120s
+
+    - name: publish the chart
+      try:
+        - script:
+            content: |
+              set -eu
+              cd ../../..
+              helm dependency build .
+              helm package .
+              ca=$(mktemp)
+              trap 'rm -f "$ca"' EXIT
+              kubectl -n kube-system get secret tls-server-certificate \
+                -o jsonpath='{.data.ca\.crt}' | base64 -d > "$ca"
+              chart=$(awk '/^name:/{print $2}' Chart.yaml)
+              version=$(awk '/^version:/{print $2}' Chart.yaml)
+              helm push "$chart-$version.tgz" oci://localhost:5000/charts --ca-file "$ca"
+
+    - name: claim an instance and check its workload
+      try:
+        - script:
+            content: awk '/^name:/{printf "%s", $2}' ../../../Chart.yaml
+            outputs:
+              - name: chart
+                value: ($stdout)
+        - script:
+            content: awk '/^version:/{printf "%s", $2}' ../../../Chart.yaml
+            outputs:
+              - name: version
+                value: ($stdout)
+        - script:
+            content: awk '/^version:/{split($2, v, "."); printf "%s", v[1]}' ../../../Chart.yaml
+            outputs:
+              - name: major
+                value: ($stdout)
+        # Hash of values.yaml, the file the CRD schema is generated from, plus
+        # the test namespace chainsaw generated: every test gets its own API
+        # group, so parallel runs and sibling tests never share a CRD.
+        - script:
+            content: |
+              { cat ../../../values.yaml; echo "$NAMESPACE"; } \
+                | sha256sum | cut -c1-8 | tr -d '\n'
+            outputs:
+              - name: id
+                value: ($stdout)
+
+        - apply:
+            file: sources.yaml
+        - assert:
+            resource:
+              apiVersion: helmetica.io/v1
+              kind: CustomResourceDefinitionSource
+              metadata:
+                name: (join('', ['v', $major, '-', $id, '.', $chart]))
+                namespace: hel-chrysopoeia
+              status:
+                (conditions[?type == 'Ready']):
+                  - status: "True"
+
+        # Chrysopoeia derives kind and plural from the chart, so both are read.
+        - script:
+            content: |
+              kubectl get crd \
+                -o jsonpath="{.items[?(@.spec.group=='v$MAJOR-$ID.$CHART.helmetica-bundles.io')].spec.names.kind}"
+            env:
+              - name: CHART
+                value: ($chart)
+              - name: MAJOR
+                value: ($major)
+              - name: ID
+                value: ($id)
+            outputs:
+              - name: kind
+                value: ($stdout)
+        - script:
+            content: |
+              kubectl get crd \
+                -o jsonpath="{.items[?(@.spec.group=='v$MAJOR-$ID.$CHART.helmetica-bundles.io')].metadata.name}"
+            env:
+              - name: CHART
+                value: ($chart)
+              - name: MAJOR
+                value: ($major)
+              - name: ID
+                value: ($id)
+            outputs:
+              - name: crd
+                value: ($stdout)
+
+        - apply:
+            file: instance.yaml
+        - assert:
+            resource:
+              apiVersion: (join('', ['v', $major, '-', $id, '.', $chart, '.helmetica-bundles.io/bundle']))
+              kind: ($kind)
+              metadata:
+                name: mariadb
+              status:
+                releaseStatus: Ready
+
+        # Chrysopoeia releases the chart into a namespace of its own.
+        - script:
+            content: kubectl -n $NAMESPACE get $CRD mariadb -o jsonpath='{.status.instanceNamespace}'
+            env:
+              - name: CRD
+                value: ($crd)
+            outputs:
+              - name: instanceNs
+                value: ($stdout)
+        - assert:
+            resource:
+              apiVersion: helm.toolkit.fluxcd.io/v2
+              kind: HelmRelease
+              metadata:
+                name: mariadb
+                namespace: ($instanceNs)
+              status:
+                (conditions[?type == 'Ready']):
+                  - status: "True"
+
+        # Custos writes the resolved credentials beside the claim rather than beside the
+        # service, so this lands in the test's own namespace.
+        - assert:
+            resource:
+              apiVersion: v1
+              kind: Secret
+              metadata:
+                name: mariadb-credentials
+              type: Opaque
+
+        - apply:
+            file: client.yaml
+        - assert:
+            resource:
+              apiVersion: batch/v1
+              kind: Job
+              metadata:
+                name: mariadb-client
+              status:
+                succeeded: 1
+
+      catch:
+        - describe:
+            apiVersion: arcana.helmetica.io/v1
+            kind: Arcanum
+        - describe:
+            apiVersion: seals.helmetica.io/v1
+            kind: Seal
+        - describe:
+            apiVersion: batch/v1
+            kind: Job
+        - podLogs:
+            selector: job-name=mariadb-client
+            tail: 50
+        - podLogs:
+            namespace: hel-custos
+            selector: control-plane=controller-manager
+            tail: 50
+        - podLogs:
+            namespace: hel-sigillum
+            selector: control-plane=controller-manager
+            tail: 50
+      cleanup:
+        # Chrysopoeia owns the generated CRD, chainsaw does not clean it up.
+        - script:
+            content: kubectl delete crd $CRD --ignore-not-found
+            env:
+              - name: CRD
+                value: ($crd)

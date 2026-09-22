@@ -1,0 +1,52 @@
+# A client in the claim namespace, given nothing but the credentials secret
+# custos wrote there. It has to reach across into the instance namespace,
+# past the network policies sigillum wrote, and authenticate with the
+# password the chart minted.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: mariadb-client
+spec:
+  backoffLimit: 2
+  template:
+    spec:
+      restartPolicy: Never
+      volumes:
+        - name: ca-crt
+          secret:
+            secretName: mariadb-credentials
+            items:
+              - key: "CA.CRT"
+                path: "ca.pem"
+      containers:
+        - name: client
+          # Pin this to the MariaDB client image version used by your environment.
+          image: mariadb:11.8
+          # Every credential the Arcanum hands out, as the environment a real
+          # consumer would read.
+          envFrom:
+            - secretRef:
+                name: mariadb-credentials
+          volumeMounts:
+            - name: ca-crt
+              mountPath: "/etc/ssl/mariadb/"
+          command:
+            - sh
+            - -ec
+            - |
+              # Verify that connecting and creating a database works
+              mariadb \
+                --host="$MARIADB_HOST" \
+                --port="$MARIADB_PORT" \
+                --user=root \
+                --password="$MARIADB_PASSWORD" \
+                --ssl-ca=/etc/ssl/mariadb/ca.pem \
+                --ssl-verify-server-cert \
+                -e "CREATE DATABASE IF NOT EXISTS touchstone"
+
+              # Verify that connecting without credentials fails.
+              # Use the host and port supplied by the credentials secret.
+              refused=$(mariadb -h "$MARIADB_HOST" -P "$MARIADB_PORT" -u invalid_probe_user --connect-timeout=5 -e "SELECT 1" 2>&1 || true)
+
+              echo "unauthenticated: $refused"
+              echo "$refused" | grep -Eqi 'Access denied'

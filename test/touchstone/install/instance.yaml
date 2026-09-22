@@ -1,0 +1,14 @@
+apiVersion: (join('', ['v', $major, '-', $id, '.', $chart, '.helmetica-bundles.io/bundle']))
+kind: ($kind)
+metadata:
+  name: instance
+spec:
+  approval:
+    strategy: Automatic
+  version: ($version)
+  # Defaults of the chart's values.yaml. Add the values worth testing here.
+  values:
+    # Off by default, so nothing would exercise the BackupPolicy template otherwise. Needs
+    # ampulla and a COSI driver in the cluster, both of which athanor installs.
+    backup:
+      enabled: true
