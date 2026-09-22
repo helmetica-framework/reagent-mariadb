@@ -1,0 +1,9 @@
+apiVersion: (join('', ['v', $major, '-', $id, '.', $chart, '.helmetica-bundles.io/bundle']))
+kind: ($kind)
+metadata:
+  name: mariadb
+spec:
+  approval:
+    strategy: Automatic
+  version: ($version)
+  values: {}

@@ -1,0 +1,4 @@
+*.tgz
+charts/
+demo/
+.azoth-link
