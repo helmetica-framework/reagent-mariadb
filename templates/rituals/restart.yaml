@@ -3,7 +3,7 @@ kind: Definition
 metadata:
   name: restart
   labels:
-    {{- include "mariadb.labels" . | nindent 4 }}
+    {{- include "azoth.labels" . | nindent 4 }}
 spec:
   description: Restart the application
   jobTemplate:
