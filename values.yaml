@@ -95,7 +95,7 @@ service:
     generate: true
     key: root
     name: mariadb-cluster-root
-  image: "mariadb:11.8.8"
+  image: "mariadb:13.0.2"
   storage:
     ephemeral: false
     resizeInUseVolumes: true
