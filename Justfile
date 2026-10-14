@@ -103,27 +103,9 @@ release: _guard-unlinked
     git tag v{{ version }} main
     git push origin v{{ version }}
 
-# Install the reagent via helm install
-mix namespace="default":
-    transmuter mix --namespace {{ namespace }}
-
-# Install the reagent via helmetica into a running athanor cluster (just ignite).
-infuse namespace="default" id="": build
+_setup_upstream_crds:
     #!/usr/bin/env bash
     set -euo pipefail
-
-    suffix=""
-    if [ -n "{{ id }}" ]; then suffix="-{{ id }}"; fi
-    group="v{{ major }}$suffix.{{ chart }}"
-
-    # best effort pluralization
-    lower='{{ lowercase(chart) }}'
-    case "$lower" in
-        *[!aeiou]y)       plural="${lower%y}ies" ;;
-        *s|*x|*z|*ch|*sh) plural="${lower}es" ;;
-        *)                plural="${lower}s" ;;
-    esac
-
     kubectl apply -f - <<EOF
     # Install and configure upstream MariaDB crds, operator and cluster
     apiVersion: image.toolkit.fluxcd.io/v1
@@ -294,10 +276,13 @@ infuse namespace="default" id="": build
       - name: restores.k8s.mariadb.com
       - name: sqljobs.k8s.mariadb.com
       - name: users.k8s.mariadb.com
+      - name: rbac.authorization.k8s.io
       harnessRef:
         kind: OperatorHarness
         name: mariadb
     EOF
+    kubectl -n hel-chrysopoeia wait --for condition=Ready \
+        "customresourcedefinitionsource/v26.mariadb-crds" --timeout 120s
     # deploy empty mariadb crd and operator for the crds to be properly installed
     kubectl apply -f - <<EOF
     apiVersion: v26.mariadb-crds.helmetica-bundles.io/bundle
@@ -335,6 +320,63 @@ infuse namespace="default" id="": build
           enabled: false
       version: 26.6.0
     EOF
+    kubectl -n hel-chrysopoeia wait --for=jsonpath='{.status.releaseStatus}'=Ready \
+        "mariadboperator/mariadb-operator" --timeout 120s
+    kubectl -n hel-chrysopoeia wait --for=jsonpath='{.status.releaseStatus}'=Ready \
+        "mariadboperatorcrd/mariadb-crds" --timeout 120s
+    # Create clusterrolebinding to allow mariadb-operator to create clusterrolebindings
+    namespace=$(kubectl -n hel-chrysopoeia get claim -o jsonpath="{.items[?(@.kind=='MariaDBOperator')].status.instanceNamespace}")
+    kubectl apply -f - <<EOF
+    apiVersion: rbac.authorization.k8s.io/v1
+    kind: ClusterRole
+    metadata:
+      name: mariadb-operator-clusterrolebinding
+    rules:
+      - apiGroups: ["rbac.authorization.k8s.io"]
+        resources: ["clusterrolebindings"]
+        verbs: ["create", "get", "list", "watch", "update", "patch"]
+      - apiGroups: ["authentication.k8s.io"]
+        resources: ["tokenreviews"]
+        verbs: ["create", "get", "list", "watch", "update", "patch"]
+      - apiGroups: ["authorization.k8s.io"]
+        resources: ["subjectaccessreviews"]
+        verbs: ["create", "get", "list", "watch", "update", "patch"]
+    ---
+    apiVersion: rbac.authorization.k8s.io/v1
+    kind: ClusterRoleBinding
+    metadata:
+      name: mariadb-operator-clusterrolebinding
+    subjects:
+      - kind: ServiceAccount
+        name: mariadb-operator
+        namespace: $namespace
+    roleRef:
+      apiGroup: rbac.authorization.k8s.io
+      kind: ClusterRole
+      name: mariadb-operator-clusterrolebinding
+    EOF
+
+# Install the reagent via helm install
+mix namespace="default":
+    transmuter mix --namespace {{ namespace }}
+
+# Install the reagent via helmetica into a running athanor cluster (just ignite).
+infuse namespace="default" id="": _setup_upstream_crds build
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    suffix=""
+    if [ -n "{{ id }}" ]; then suffix="-{{ id }}"; fi
+    group="v{{ major }}$suffix.{{ chart }}"
+
+    # best effort pluralization
+    lower='{{ lowercase(chart) }}'
+    case "$lower" in
+        *[!aeiou]y)       plural="${lower%y}ies" ;;
+        *s|*x|*z|*ch|*sh) plural="${lower}es" ;;
+        *)                plural="${lower}s" ;;
+    esac
+
     ca=$(mktemp)
     trap 'rm -f "$ca"' EXIT
     kubectl -n kube-system get secret tls-server-certificate \
@@ -419,7 +461,8 @@ infuse namespace="default" id="": build
         strategy: Automatic
       version: '{{ version }}'
       # Defaults of the chart's values.yaml.
-      values: {}
+      values:
+        replicas: 3
     EOF
 
     kubectl -n {{ namespace }} wait --for=jsonpath='{.status.releaseStatus}'=Ready \
@@ -431,8 +474,26 @@ infuse namespace="default" id="": build
 strain namespace="default":
     helm uninstall $(basename $(pwd)) -n {{ namespace }}
 
+_remove_upstream_crds:
+    #!/usr/bin/env bash
+    read -r -p "Do you want to remove upstream crds? [y/N] " answer
+    [[ "$answer" =~ ^[Yy]$ ]] || exit 0
+    kubectl -n hel-chrysopoeia delete \
+        "mariadboperator/mariadb-operator" \
+        "mariadboperatorcrds/mariadb-crds" \
+        "customresourcedefinitionsources/v26.mariadb-cluster" \
+        "customresourcedefinitionsources/v26.mariadb-operator" \
+        "ocirepository/mariadb-cluster-v26" \
+        "imagerepository/mariadb-cluster-v26" --ignore-not-found \
+        "ocirepository/mariadb-operator-v26" \
+        "imagerepository/mariadb-operator-v26" --ignore-not-found \
+        "customresourcedefinitionsources/v26.mariadb-crds" \
+        "ocirepository/mariadb-crds-v26" \
+        "imagerepository/mariadb-crds-v26" --ignore-not-found
+    kubectl delete dependencygroup/mariadb
+
 # Uninstall what infuse installed, including the generated CRD
-decant namespace="default" id="":
+decant namespace="default" id="": && _remove_upstream_crds
     #!/usr/bin/env bash
     set -euo pipefail
 
@@ -446,21 +507,9 @@ decant namespace="default" id="":
         kubectl -n {{ namespace }} delete "$crd" {{ chart }} --ignore-not-found
     fi
     kubectl -n hel-chrysopoeia delete \
-        "mariadboperator/mariadb-operator" \
-        "mariadboperatorcrds/mariadb-crds" \
         "customresourcedefinitionsource/$group" \
         "ocirepository/{{ chart }}-v{{ major }}$suffix" \
         "imagerepository/{{ chart }}$suffix" --ignore-not-found \
-        "customresourcedefinitionsources/v26.mariadb-cluster" \
-        "ocirepository/mariadb-cluster-v26" \
-        "imagerepository/mariadb-cluster-v26" --ignore-not-found \
-        "customresourcedefinitionsources/v26.mariadb-operator" \
-        "ocirepository/mariadb-operator-v26" \
-        "imagerepository/mariadb-operator-v26" --ignore-not-found \
-        "customresourcedefinitionsources/v26.mariadb-crds" \
-        "ocirepository/mariadb-crds-v26" \
-        "imagerepository/mariadb-crds-v26" --ignore-not-found
-    kubectl delete dependencygroup/mariadb
     # Chrysopoeia owns the generated CRD, dropping its source does not remove it.
     # The CRD is cluster wide: this also takes any instance of this chart that
     # someone else claimed in another namespace.

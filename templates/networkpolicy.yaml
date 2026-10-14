@@ -1,0 +1,16 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  labels:
+    {{- include "azoth.labels" . | nindent 4 }}
+  name: {{ .Release.Name }}
+  namespace: {{ .InstanceNamespace | quote }}
+spec:
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: {{ .ClaimNamespace | quote }}
+  podSelector: {}
+  policyTypes:
+  - Ingress

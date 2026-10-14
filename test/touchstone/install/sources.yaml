@@ -35,6 +35,9 @@ metadata:
   name: (join('', ['v', $major, '-', $id, '.', $chart]))
   namespace: hel-chrysopoeia
 spec:
+  requires:
+  - dependencyGroup:
+      name: mariadb
   reference:
     apiVersion: source.toolkit.fluxcd.io/v1
     kind: OCIRepository
