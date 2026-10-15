@@ -298,7 +298,11 @@ _setup_upstream_crds:
       - dependencyGroup:
           name: mariadb
       version: 26.6.0
-    ---
+    EOF
+    kubectl -n hel-chrysopoeia wait --for=jsonpath='{.status.releaseStatus}'=Ready \
+        "mariadboperatorcrd/mariadb-crds" --timeout 120s
+
+    kubectl apply -f - <<EOF
     apiVersion: v26.mariadb-operator.helmetica-bundles.io/bundle
     kind: MariaDBOperator
     metadata:
@@ -322,39 +326,38 @@ _setup_upstream_crds:
     EOF
     kubectl -n hel-chrysopoeia wait --for=jsonpath='{.status.releaseStatus}'=Ready \
         "mariadboperator/mariadb-operator" --timeout 120s
-    kubectl -n hel-chrysopoeia wait --for=jsonpath='{.status.releaseStatus}'=Ready \
-        "mariadboperatorcrd/mariadb-crds" --timeout 120s
-    # Create clusterrolebinding to allow mariadb-operator to create clusterrolebindings
-    namespace=$(kubectl -n hel-chrysopoeia get claim -o jsonpath="{.items[?(@.kind=='MariaDBOperator')].status.instanceNamespace}")
-    kubectl apply -f - <<EOF
-    apiVersion: rbac.authorization.k8s.io/v1
-    kind: ClusterRole
-    metadata:
-      name: mariadb-operator-clusterrolebinding
-    rules:
-      - apiGroups: ["rbac.authorization.k8s.io"]
-        resources: ["clusterrolebindings"]
-        verbs: ["create", "get", "list", "watch", "update", "patch"]
-      - apiGroups: ["authentication.k8s.io"]
-        resources: ["tokenreviews"]
-        verbs: ["create", "get", "list", "watch", "update", "patch"]
-      - apiGroups: ["authorization.k8s.io"]
-        resources: ["subjectaccessreviews"]
-        verbs: ["create", "get", "list", "watch", "update", "patch"]
-    ---
-    apiVersion: rbac.authorization.k8s.io/v1
-    kind: ClusterRoleBinding
-    metadata:
-      name: mariadb-operator-clusterrolebinding
-    subjects:
-      - kind: ServiceAccount
-        name: mariadb-operator
-        namespace: $namespace
-    roleRef:
-      apiGroup: rbac.authorization.k8s.io
-      kind: ClusterRole
-      name: mariadb-operator-clusterrolebinding
-    EOF
+
+#    # Create clusterrolebinding to allow mariadb-operator to create clusterrolebindings
+#    namespace=$(kubectl -n hel-chrysopoeia get claim -o jsonpath="{.items[?(@.kind=='MariaDBOperator')].status.instanceNamespace}")
+#    kubectl apply -f - <<EOF
+#    apiVersion: rbac.authorization.k8s.io/v1
+#    kind: ClusterRole
+#    metadata:
+#      name: mariadb-operator-clusterrolebinding
+#    rules:
+#      - apiGroups: ["rbac.authorization.k8s.io"]
+#        resources: ["clusterrolebindings"]
+#        verbs: ["create", "get", "list", "watch", "update", "patch"]
+#      - apiGroups: ["authentication.k8s.io"]
+#        resources: ["tokenreviews"]
+#        verbs: ["create", "get", "list", "watch", "update", "patch"]
+#      - apiGroups: ["authorization.k8s.io"]
+#        resources: ["subjectaccessreviews"]
+#        verbs: ["create", "get", "list", "watch", "update", "patch"]
+#    ---
+#    apiVersion: rbac.authorization.k8s.io/v1
+#    kind: ClusterRoleBinding
+#    metadata:
+#      name: mariadb-operator-clusterrolebinding
+#    subjects:
+#      - kind: ServiceAccount
+#        name: mariadb-operator
+#        namespace: $namespace
+#    roleRef:
+#      apiGroup: rbac.authorization.k8s.io
+#      kind: ClusterRole
+#      name: mariadb-operator-clusterrolebinding
+#    EOF
 
 # Install the reagent via helm install
 mix namespace="default":
@@ -462,9 +465,26 @@ infuse namespace="default" id="": _setup_upstream_crds build
       version: '{{ version }}'
       # Defaults of the chart's values.yaml.
       values:
-        replicas: 3
+        replicas: 1
     EOF
 
+    # add default intra namespace pod networking policy
+    kubectl -n {{namespace}} wait --for=jsonpath='{.status.instanceNamespace}' "$crd/{{ chart }}" --timeout 60s
+    instance_namespace=$(kubectl -n {{ namespace }} get "$crd/{{ chart }}" -o jsonpath='{.status.instanceNamespace}')
+    kubectl apply -f - <<EOF
+    apiVersion: networking.k8s.io/v1
+    kind: NetworkPolicy
+    metadata:
+      name: set-default-allow-intra-namespace
+      namespace: $instance_namespace
+    spec:
+      ingress:
+      - from:
+        - podSelector: {}
+      podSelector: {}
+      policyTypes:
+      - Ingress
+    EOF
     kubectl -n {{ namespace }} wait --for=jsonpath='{.status.releaseStatus}'=Ready \
         "$crd/{{ chart }}" --timeout 300s
     kubectl -n {{ namespace }} get "$crd/{{ chart }}" \

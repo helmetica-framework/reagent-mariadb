@@ -1,9 +1,9 @@
 dependencies:
 - name: vshnmariadb
   repository: oci://ghcr.io/vshn
-  version: 0.0.15
+  version: 0.0.16
 - name: azoth
   repository: oci://ghcr.io/helmetica-framework
   version: 0.0.2
-digest: sha256:421eb6374dd0bbc08c2107a357e07ddf40b948bcc3f027cdcf0da5e4ba15da05
-generated: "2026-09-21T08:29:05.811574221Z"
+digest: sha256:46b8459a224732e42addcbddde3420ff9a7eb87658f24ca7cfb769b37c086f8f
+generated: "2026-10-15T08:10:33.561238529Z"
