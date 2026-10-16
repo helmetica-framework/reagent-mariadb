@@ -11,6 +11,20 @@ spec:
     - namespaceSelector:
         matchLabels:
           kubernetes.io/metadata.name: {{ .ClaimNamespace | quote }}
+  # The mariadb-operator connects to the instance to manage users, grants and
+  # the metrics exporter. Its namespace carries the provides label.
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          provides.helmetica.io/mariadb: ""
+  # Prometheus scrapes the metrics exporter.
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          helmetica.io/monitoring: system
+    ports:
+    - protocol: TCP
+      port: {{ dig "metrics" "exporter" "port" 9104 .Values.service }}
   podSelector: {}
   policyTypes:
   - Ingress

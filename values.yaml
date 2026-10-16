@@ -109,6 +109,11 @@ service:
     waitForVolumeResize: true
   replicasAllowEvenNumber: false
 
+  metrics:
+    enabled: true
+    exporter:
+      image: prom/mysqld-exporter:v0.15.1
+
   galera:
     enabled: "cel: values.replicas > 1 ? true : false"
     agent:
