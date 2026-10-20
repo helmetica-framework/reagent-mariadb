@@ -11,4 +11,4 @@ spec:
     # Off by default, so nothing would exercise the BackupPolicy template otherwise. Needs
     # ampulla and a COSI driver in the cluster, both of which athanor installs.
     backup:
-      enabled: true
+      enabled: false

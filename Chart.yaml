@@ -3,7 +3,7 @@ name: mariadb
 type: application
 version: 0.0.1
 dependencies:
-- alias: service
+- alias: vshnmariadb
   name: vshnmariadb
   repository: oci://ghcr.io/vshn
   version: 0.0.16

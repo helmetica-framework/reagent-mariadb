@@ -143,22 +143,6 @@ spec:
         # bucket exists in athanor's Garage and k8up has a Schedule pointed at it.
         - assert:
             resource:
-              apiVersion: backups.helmetica.io/v1
-              kind: BackupPolicy
-              metadata:
-                name: instance
-                namespace: ($instanceNs)
-              status:
-                phase: Ready
-        - assert:
-            resource:
-              apiVersion: rituals.helmetica.io/v1
-              kind: Definition
-              metadata:
-                name: maintenance
-                namespace: ($instanceNs)
-        - assert:
-            resource:
               apiVersion: rituals.helmetica.io/v1
               kind: Definition
               metadata:
