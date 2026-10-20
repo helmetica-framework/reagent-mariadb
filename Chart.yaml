@@ -8,5 +8,5 @@ dependencies:
   repository: oci://ghcr.io/vshn
   version: 0.0.16
 - name: azoth
-  version: 0.0.2
+  version: 0.0.5
   repository: oci://ghcr.io/helmetica-framework
