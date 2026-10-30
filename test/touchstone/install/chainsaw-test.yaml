@@ -10,6 +10,15 @@ spec:
     transmutation. Add the assertions for the reagent's own workload to the last
     step.
   steps:
+    - name: check that upstream mariadb crds are properly installed
+      try:
+        - script:
+            content: |
+              set -eu
+              kubectl -n hel-chrysopoeia wait --for condition=Ready \
+                  "customresourcedefinitionsource/v26.mariadb-crds" --timeout 120s
+              kubectl -n hel-chrysopoeia wait --for=jsonpath='{.status.releaseStatus}'=Ready \
+                  "mariadboperatorcrd/mariadb-crds" --timeout 120s
     - name: publish the chart
       try:
         - script:
