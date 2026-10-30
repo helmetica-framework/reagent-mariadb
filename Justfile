@@ -84,7 +84,7 @@ push: _guard-unlinked build
     helm push {{ chart }}-{{ version }}.tgz {{ REGISTRY }}
 
 # Read the reagent's purity: end-to-end test against a running athanor cluster (just ignite).
-touchstone:
+touchstone: _setup_upstream_crds
     {{ CHAINSAW_CMD }} test --config test/touchstone/chainsaw-config.yaml test/touchstone --quiet
 
 # Push main, tag the current commit and push the tag to trigger the release
@@ -302,6 +302,8 @@ _setup_upstream_crds:
     kubectl -n hel-chrysopoeia wait --for=jsonpath='{.status.releaseStatus}'=Ready \
         "mariadboperatorcrd/mariadb-crds" --timeout 120s
 
+    kubectl -n hel-chrysopoeia wait --for condition=Ready \
+        "customresourcedefinitionsource/v26.mariadb-operator" --timeout 120s
     kubectl apply -f - <<EOF
     apiVersion: v26.mariadb-operator.helmetica-bundles.io/bundle
     kind: MariaDBOperator
