@@ -187,9 +187,9 @@ _setup_upstream_crds:
       interval: 12h
       provider: generic
     ---
-    # Install CustomResourceDefinitionSources
-    apiVersion: helmetica.io/v1
-    kind: CustomResourceDefinitionSource
+    # Install ClaimDefinitions
+    apiVersion: chrysopoeia.helmetica.io/v1
+    kind: ClaimDefinition
     metadata:
       annotations:
       name: v26.mariadb-crds
@@ -211,8 +211,8 @@ _setup_upstream_crds:
           kind: ImageRepository
           name: mariadb-crds-v26
     ---
-    apiVersion: helmetica.io/v1
-    kind: CustomResourceDefinitionSource
+    apiVersion: chrysopoeia.helmetica.io/v1
+    kind: ClaimDefinition
     metadata:
       annotations:
       name: v26.mariadb-operator
@@ -234,8 +234,8 @@ _setup_upstream_crds:
           kind: ImageRepository
           name: mariadb-operator-v26
     ---
-    apiVersion: helmetica.io/v1
-    kind: CustomResourceDefinitionSource
+    apiVersion: chrysopoeia.helmetica.io/v1
+    kind: ClaimDefinition
     metadata:
       annotations:
       name: v26.mariadb-cluster
@@ -258,7 +258,7 @@ _setup_upstream_crds:
           name: mariadb-cluster-v26
     ---
     # Install DependencyGroup
-    apiVersion: helmetica.io/v1
+    apiVersion: chrysopoeia.helmetica.io/v1
     kind: DependencyGroup
     metadata:
       name: mariadb
@@ -282,7 +282,7 @@ _setup_upstream_crds:
         name: mariadb
     EOF
     kubectl -n hel-chrysopoeia wait --for condition=Ready \
-        "customresourcedefinitionsource/v26.mariadb-crds" --timeout 120s
+        "claimdefinition/v26.mariadb-crds" --timeout 120s
     # deploy empty mariadb crd and operator for the crds to be properly installed
     kubectl apply -f - <<EOF
     apiVersion: v26.mariadb-crds.helmetica-bundles.io/bundle
@@ -303,7 +303,7 @@ _setup_upstream_crds:
         "mariadboperatorcrd/mariadb-crds" --timeout 120s
 
     kubectl -n hel-chrysopoeia wait --for condition=Ready \
-        "customresourcedefinitionsource/v26.mariadb-operator" --timeout 120s
+        "claimdefinition/v26.mariadb-operator" --timeout 120s
     kubectl apply -f - <<EOF
     apiVersion: v26.mariadb-operator.helmetica-bundles.io/bundle
     kind: MariaDBOperator
@@ -388,7 +388,7 @@ infuse namespace="default" id="": _setup_upstream_crds build
         -o jsonpath='{.data.ca\.crt}' | base64 -d > "$ca"
     helm push {{ chart }}-{{ version }}.tgz oci://{{ ATHANOR_REGISTRY }} --ca-file "$ca"
 
-    # Chrysopoeia only watches CustomResourceDefinitionSources in its own namespace.
+    # Chrysopoeia only watches ClaimDefinitions in its own namespace.
     kubectl apply -f - <<EOF
     apiVersion: source.toolkit.fluxcd.io/v1
     kind: OCIRepository
@@ -416,8 +416,8 @@ infuse namespace="default" id="": _setup_upstream_crds build
       provider: generic
     ---
     # The name becomes the API group of the generated CRD: <name>.helmetica-bundles.io
-    apiVersion: helmetica.io/v1
-    kind: CustomResourceDefinitionSource
+    apiVersion: chrysopoeia.helmetica.io/v1
+    kind: ClaimDefinition
     metadata:
       name: $group
       namespace: hel-chrysopoeia
@@ -440,7 +440,7 @@ infuse namespace="default" id="": _setup_upstream_crds build
     EOF
 
     kubectl -n hel-chrysopoeia wait --for condition=Ready \
-        "customresourcedefinitionsource/$group" --timeout 120s
+        "claimdefinition/$group" --timeout 120s
 
     # Manually bump the imagerepository
     kubectl annotate imagerepository/{{ chart }}$suffix -n hel-chrysopoeia \
@@ -502,13 +502,13 @@ _remove_upstream_crds:
     kubectl -n hel-chrysopoeia delete \
         "mariadboperator/mariadb-operator" \
         "mariadboperatorcrds/mariadb-crds" \
-        "customresourcedefinitionsources/v26.mariadb-cluster" \
-        "customresourcedefinitionsources/v26.mariadb-operator" \
+        "claimdefinitions/v26.mariadb-cluster" \
+        "claimdefinitions/v26.mariadb-operator" \
         "ocirepository/mariadb-cluster-v26" \
         "imagerepository/mariadb-cluster-v26" --ignore-not-found \
         "ocirepository/mariadb-operator-v26" \
         "imagerepository/mariadb-operator-v26" --ignore-not-found \
-        "customresourcedefinitionsources/v26.mariadb-crds" \
+        "claimdefinitions/v26.mariadb-crds" \
         "ocirepository/mariadb-crds-v26" \
         "imagerepository/mariadb-crds-v26" --ignore-not-found
     kubectl delete dependencygroup/mariadb
@@ -528,7 +528,7 @@ decant namespace="default" id="": && _remove_upstream_crds
         kubectl -n {{ namespace }} delete "$crd" {{ chart }} --ignore-not-found
     fi
     kubectl -n hel-chrysopoeia delete \
-        "customresourcedefinitionsource/$group" \
+        "claimdefinition/$group" \
         "ocirepository/{{ chart }}-v{{ major }}$suffix" \
         "imagerepository/{{ chart }}$suffix" --ignore-not-found \
     # Chrysopoeia owns the generated CRD, dropping its source does not remove it.

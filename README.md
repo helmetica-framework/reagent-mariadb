@@ -15,8 +15,8 @@ This repository contains a starter chart which is used by helmetica's transmuter
 | **Reagent** | A service chart wrapping an upstream (prima materia) chart, created by transmuting this ferment. |
 | **Prima materia** | The raw upstream Helm chart a transmutation starts from. It ends up as a dependency of the reagent; this ferment has none. |
 | **Transmuter** | The framework's chart tool: scaffolds reagents from this ferment and assays them. |
-| **Chrysopoeia** | The controller that turns a published reagent into a CRD: it reads a `CustomResourceDefinitionSource`, generates the API group `<source name>.helmetica-bundles.io` from the chart's `values.yaml`, and releases claimed instances into their own namespace. |
-| **Ritual** | A packaged `Definition` manifest (`rituals.helmetica.io/v1`) describing an operational action. Ferment ships `restart` and `maintenance` as defaults. |
+| **Chrysopoeia** | The controller that turns a published reagent into a CRD: it reads a `ClaimDefinition`, generates the API group `<source name>.helmetica-bundles.io` from the chart's `values.yaml`, and releases claimed instances into their own namespace. |
+| **Ritual** | A packaged `Definition` manifest (`adept.helmetica.io/v1`) describing an operational action. Ferment ships `restart` and `maintenance` as defaults. |
 | **Assay** | Non-destructive purity test of a reagent, run by the transmuter: chart validity plus CRD breaking-change detection. Offline, no cluster. |
 | **Touchstone** | The dark stone an assayer streaks gold across to read its purity. Here the end-to-end test in `test/touchstone`, which proves the chart against a live athanor: publish, generate the CRD, claim an instance, check the release. |
 | **Athanor** | The alchemist's slow furnace. Here the local development cluster the touchstone runs against, started with `just ignite`. |

@@ -18,7 +18,7 @@ tests:
       - isKind:
           of: BackupPolicy
       - isAPIVersion:
-          of: backups.helmetica.io/v1
+          of: ampulla.helmetica.io/v1
       - equal:
           path: metadata.name
           value: instance
@@ -70,7 +70,7 @@ tests:
       - isKind:
           of: Definition
       - isAPIVersion:
-          of: rituals.helmetica.io/v1
+          of: adept.helmetica.io/v1
       - equal:
           path: spec.jobTemplate.spec.template.spec.restartPolicy
           value: Never
@@ -88,9 +88,9 @@ tests:
       - credentials.yaml
     asserts:
       - isKind:
-          of: Arcanum
+          of: CredentialConfig
       - isAPIVersion:
-          of: arcana.helmetica.io/v1
+          of: custos.helmetica.io/v1
       - equal:
           path: spec.target.name
           value: instance-credentials
@@ -110,7 +110,7 @@ tests:
       - network.yaml
     asserts:
       - isKind:
-          of: Seal
+          of: NetworkConfig
       - equal:
           path: spec.allowedNamespaces
           value: []
