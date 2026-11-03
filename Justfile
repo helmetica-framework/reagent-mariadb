@@ -298,6 +298,19 @@ _setup_upstream_crds:
           verbs:
             - update
             - patch
+        # There's a race during de-provisioning, the local admin role might already be gone and then the operator gets stuck because of missing permissions
+        - apiGroups:
+            - k8s.mariadb.com
+          resources:
+            - grants
+            - grants/finalizers
+            - users
+            - users/finalizers
+            - databases
+            - databases/finalizers
+          verbs:
+            - patch
+            - update
       crds:
         - name: backups.k8s.mariadb.com
         - name: connections.k8s.mariadb.com
