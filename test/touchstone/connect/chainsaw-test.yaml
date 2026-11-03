@@ -161,8 +161,8 @@ spec:
               [ -n "$ns" ] || { echo "no instance namespace yet"; exit 0; }
               kubectl -n "$ns" describe helmrelease mariadb
         - describe:
-            apiVersion: arcana.helmetica.io/v1
-            kind: Arcanum
+            apiVersion: custos.helmetica.io/v1
+            kind: CredentialConfig
         - describe:
             apiVersion: sigillum.helmetica.io/v1
             kind: NetworkConfig

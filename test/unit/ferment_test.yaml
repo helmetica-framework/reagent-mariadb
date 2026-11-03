@@ -88,9 +88,9 @@ tests:
       - credentials.yaml
     asserts:
       - isKind:
-          of: Arcanum
+          of: CredentialConfig
       - isAPIVersion:
-          of: arcana.helmetica.io/v1
+          of: custos.helmetica.io/v1
       - equal:
           path: spec.target.name
           value: instance-credentials

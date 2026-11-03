@@ -22,7 +22,7 @@ spec:
         - name: client
           # Pin this to the MariaDB client image version used by your environment.
           image: mariadb:11.8
-          # Every credential the Arcanum hands out, as the environment a real
+          # Every credential the CredentialConfig hands out, as the environment a real
           # consumer would read.
           envFrom:
             - secretRef:
