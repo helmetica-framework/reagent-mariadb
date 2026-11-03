@@ -70,7 +70,7 @@ tests:
       - isKind:
           of: Definition
       - isAPIVersion:
-          of: rituals.helmetica.io/v1
+          of: adept.helmetica.io/v1
       - equal:
           path: spec.jobTemplate.spec.template.spec.restartPolicy
           value: Never
