@@ -18,7 +18,7 @@ tests:
       - isKind:
           of: BackupPolicy
       - isAPIVersion:
-          of: backups.helmetica.io/v1
+          of: ampulla.helmetica.io/v1
       - equal:
           path: metadata.name
           value: instance

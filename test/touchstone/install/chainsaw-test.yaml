@@ -175,7 +175,7 @@ spec:
             apiVersion: helmetica.io/v1
             kind: ClaimRevision
         - describe:
-            apiVersion: backups.helmetica.io/v1
+            apiVersion: ampulla.helmetica.io/v1
             kind: BackupPolicy
       cleanup:
         # Chrysopoeia owns the generated CRD, chainsaw does not clean it up.
