@@ -110,7 +110,7 @@ tests:
       - network.yaml
     asserts:
       - isKind:
-          of: Seal
+          of: NetworkConfig
       - equal:
           path: spec.allowedNamespaces
           value: []

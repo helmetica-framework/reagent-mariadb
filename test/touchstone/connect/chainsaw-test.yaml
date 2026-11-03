@@ -164,8 +164,8 @@ spec:
             apiVersion: arcana.helmetica.io/v1
             kind: Arcanum
         - describe:
-            apiVersion: seals.helmetica.io/v1
-            kind: Seal
+            apiVersion: sigillum.helmetica.io/v1
+            kind: NetworkConfig
         - describe:
             apiVersion: batch/v1
             kind: Job
