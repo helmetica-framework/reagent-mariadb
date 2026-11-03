@@ -87,6 +87,10 @@ push: _guard-unlinked build
 touchstone: _setup_upstream_crds
     {{ CHAINSAW_CMD }} test --config test/touchstone/chainsaw-config.yaml test/touchstone --quiet
 
+# Read the reagent's purity: end-to-end test against a running athanor cluster (just ignite).
+touchstone-pause: _setup_upstream_crds
+    {{ CHAINSAW_CMD }} test --config test/touchstone/chainsaw-config.yaml test/touchstone --quiet --pause-on-failure
+
 # Push main, tag the current commit and push the tag to trigger the release
 release: _guard-unlinked
     #!/usr/bin/env bash
@@ -187,9 +191,9 @@ _setup_upstream_crds:
       interval: 12h
       provider: generic
     ---
-    # Install CustomResourceDefinitionSources
-    apiVersion: helmetica.io/v1
-    kind: CustomResourceDefinitionSource
+    # Install ClaimDefinitions
+    apiVersion: chrysopoeia.helmetica.io/v1
+    kind: ClaimDefinition
     metadata:
       annotations:
       name: v26.mariadb-crds
@@ -211,8 +215,8 @@ _setup_upstream_crds:
           kind: ImageRepository
           name: mariadb-crds-v26
     ---
-    apiVersion: helmetica.io/v1
-    kind: CustomResourceDefinitionSource
+    apiVersion: chrysopoeia.helmetica.io/v1
+    kind: ClaimDefinition
     metadata:
       annotations:
       name: v26.mariadb-operator
@@ -234,8 +238,8 @@ _setup_upstream_crds:
           kind: ImageRepository
           name: mariadb-operator-v26
     ---
-    apiVersion: helmetica.io/v1
-    kind: CustomResourceDefinitionSource
+    apiVersion: chrysopoeia.helmetica.io/v1
+    kind: ClaimDefinition
     metadata:
       annotations:
       name: v26.mariadb-cluster
@@ -258,31 +262,81 @@ _setup_upstream_crds:
           name: mariadb-cluster-v26
     ---
     # Install DependencyGroup
-    apiVersion: helmetica.io/v1
+    apiVersion: chrysopoeia.helmetica.io/v1
     kind: DependencyGroup
     metadata:
       name: mariadb
     spec:
+      clusterRules:
+        - apiGroups:
+            - rbac.authorization.k8s.io
+          resources:
+            - clusterrolebindings
+          verbs:
+            - create
+            - list
+            - patch
+            - watch
+            - delete
+        - apiGroups:
+            - authentication.k8s.io
+          resources:
+            - tokenreviews
+          verbs:
+            - create
+        - apiGroups:
+            - authorization.k8s.io
+          resources:
+            - subjectaccessreviews
+          verbs:
+            - create
+        # MariaDB has a bug where they make an `ownerReference` from a cluster scoped object to a namespaced object. This is allowed in the API and just leads to a Warning event from the GC. It also means that RBAC is weird, we need cluster scoped mariadb access to namespaced resources.
+        - apiGroups:
+            - k8s.mariadb.com
+          resources:
+            - mariadbs/finalizers
+          verbs:
+            - update
+            - patch
+        # There's a race during de-provisioning, the local admin role might already be gone and then the operator gets stuck because of missing permissions
+        - apiGroups:
+            - k8s.mariadb.com
+          resources:
+            - grants
+            - grants/finalizers
+            - users
+            - users/finalizers
+            - databases
+            - databases/finalizers
+          verbs:
+            - patch
+            - update
       crds:
-      - name: backups.k8s.mariadb.com
-      - name: connections.k8s.mariadb.com
-      - name: databases.k8s.mariadb.com
-      - name: externalmariadbs.k8s.mariadb.com
-      - name: grants.k8s.mariadb.com
-      - name: mariadbs.k8s.mariadb.com
-      - name: maxscales.k8s.mariadb.com
-      - name: physicalbackups.k8s.mariadb.com
-      - name: pointintimerecoveries.k8s.mariadb.com
-      - name: restores.k8s.mariadb.com
-      - name: sqljobs.k8s.mariadb.com
-      - name: users.k8s.mariadb.com
-      - name: rbac.authorization.k8s.io
+        - name: backups.k8s.mariadb.com
+        - name: connections.k8s.mariadb.com
+        - name: databases.k8s.mariadb.com
+        - name: externalmariadbs.k8s.mariadb.com
+        - name: grants.k8s.mariadb.com
+        - name: mariadbs.k8s.mariadb.com
+        - name: maxscales.k8s.mariadb.com
+        - name: physicalbackups.k8s.mariadb.com
+        - name: pointintimerecoveries.k8s.mariadb.com
+        - name: restores.k8s.mariadb.com
+        - name: sqljobs.k8s.mariadb.com
+        - name: users.k8s.mariadb.com
       harnessRef:
         kind: OperatorHarness
         name: mariadb
+      rules:
+        - apiGroups:
+            - '*'
+          resources:
+            - '*'
+          verbs:
+            - '*'
     EOF
     kubectl -n hel-chrysopoeia wait --for condition=Ready \
-        "customresourcedefinitionsource/v26.mariadb-crds" --timeout 120s
+        "claimdefinition/v26.mariadb-crds" --timeout 120s
     # deploy empty mariadb crd and operator for the crds to be properly installed
     kubectl apply -f - <<EOF
     apiVersion: v26.mariadb-crds.helmetica-bundles.io/bundle
@@ -303,7 +357,7 @@ _setup_upstream_crds:
         "mariadboperatorcrd/mariadb-crds" --timeout 120s
 
     kubectl -n hel-chrysopoeia wait --for condition=Ready \
-        "customresourcedefinitionsource/v26.mariadb-operator" --timeout 120s
+        "claimdefinition/v26.mariadb-operator" --timeout 120s
     kubectl apply -f - <<EOF
     apiVersion: v26.mariadb-operator.helmetica-bundles.io/bundle
     kind: MariaDBOperator
@@ -388,7 +442,7 @@ infuse namespace="default" id="": _setup_upstream_crds build
         -o jsonpath='{.data.ca\.crt}' | base64 -d > "$ca"
     helm push {{ chart }}-{{ version }}.tgz oci://{{ ATHANOR_REGISTRY }} --ca-file "$ca"
 
-    # Chrysopoeia only watches CustomResourceDefinitionSources in its own namespace.
+    # Chrysopoeia only watches ClaimDefinitions in its own namespace.
     kubectl apply -f - <<EOF
     apiVersion: source.toolkit.fluxcd.io/v1
     kind: OCIRepository
@@ -416,8 +470,8 @@ infuse namespace="default" id="": _setup_upstream_crds build
       provider: generic
     ---
     # The name becomes the API group of the generated CRD: <name>.helmetica-bundles.io
-    apiVersion: helmetica.io/v1
-    kind: CustomResourceDefinitionSource
+    apiVersion: chrysopoeia.helmetica.io/v1
+    kind: ClaimDefinition
     metadata:
       name: $group
       namespace: hel-chrysopoeia
@@ -440,7 +494,7 @@ infuse namespace="default" id="": _setup_upstream_crds build
     EOF
 
     kubectl -n hel-chrysopoeia wait --for condition=Ready \
-        "customresourcedefinitionsource/$group" --timeout 120s
+        "claimdefinition/$group" --timeout 120s
 
     # Manually bump the imagerepository
     kubectl annotate imagerepository/{{ chart }}$suffix -n hel-chrysopoeia \
@@ -502,13 +556,13 @@ _remove_upstream_crds:
     kubectl -n hel-chrysopoeia delete \
         "mariadboperator/mariadb-operator" \
         "mariadboperatorcrds/mariadb-crds" \
-        "customresourcedefinitionsources/v26.mariadb-cluster" \
-        "customresourcedefinitionsources/v26.mariadb-operator" \
+        "claimdefinitions/v26.mariadb-cluster" \
+        "claimdefinitions/v26.mariadb-operator" \
         "ocirepository/mariadb-cluster-v26" \
         "imagerepository/mariadb-cluster-v26" --ignore-not-found \
         "ocirepository/mariadb-operator-v26" \
         "imagerepository/mariadb-operator-v26" --ignore-not-found \
-        "customresourcedefinitionsources/v26.mariadb-crds" \
+        "claimdefinitions/v26.mariadb-crds" \
         "ocirepository/mariadb-crds-v26" \
         "imagerepository/mariadb-crds-v26" --ignore-not-found
     kubectl delete dependencygroup/mariadb
@@ -528,7 +582,7 @@ decant namespace="default" id="": && _remove_upstream_crds
         kubectl -n {{ namespace }} delete "$crd" {{ chart }} --ignore-not-found
     fi
     kubectl -n hel-chrysopoeia delete \
-        "customresourcedefinitionsource/$group" \
+        "claimdefinition/$group" \
         "ocirepository/{{ chart }}-v{{ major }}$suffix" \
         "imagerepository/{{ chart }}$suffix" --ignore-not-found \
     # Chrysopoeia owns the generated CRD, dropping its source does not remove it.
