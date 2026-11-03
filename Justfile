@@ -258,7 +258,7 @@ _setup_upstream_crds:
           name: mariadb-cluster-v26
     ---
     # Install DependencyGroup
-    apiVersion: helmetica.io/v1
+    apiVersion: chrysopoeia.helmetica.io/v1
     kind: DependencyGroup
     metadata:
       name: mariadb
