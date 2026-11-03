@@ -173,7 +173,7 @@ spec:
             namespace: hel-chrysopoeia
         - describe:
             apiVersion: helmetica.io/v1
-            kind: InstanceRevision
+            kind: ClaimRevision
         - describe:
             apiVersion: backups.helmetica.io/v1
             kind: BackupPolicy
