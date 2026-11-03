@@ -263,23 +263,59 @@ _setup_upstream_crds:
     metadata:
       name: mariadb
     spec:
+      clusterRules:
+        - apiGroups:
+            - rbac.authorization.k8s.io
+          resources:
+            - clusterrolebindings
+          verbs:
+            - create
+            - list
+            - patch
+            - watch
+            - delete
+        - apiGroups:
+            - authentication.k8s.io
+          resources:
+            - tokenreviews
+          verbs:
+            - create
+        - apiGroups:
+            - authorization.k8s.io
+          resources:
+            - subjectaccessreviews
+          verbs:
+            - create
+        # MariaDB has a bug where they make an `ownerReference` from a cluster scoped object to a namespaced object. This is allowed in the API and just leads to a Warning event from the GC. It also means that RBAC is weird, we need cluster scoped mariadb access to namespaced resources.
+        - apiGroups:
+            - k8s.mariadb.com
+          resources:
+            - mariadbs/finalizers
+          verbs:
+            - update
       crds:
-      - name: backups.k8s.mariadb.com
-      - name: connections.k8s.mariadb.com
-      - name: databases.k8s.mariadb.com
-      - name: externalmariadbs.k8s.mariadb.com
-      - name: grants.k8s.mariadb.com
-      - name: mariadbs.k8s.mariadb.com
-      - name: maxscales.k8s.mariadb.com
-      - name: physicalbackups.k8s.mariadb.com
-      - name: pointintimerecoveries.k8s.mariadb.com
-      - name: restores.k8s.mariadb.com
-      - name: sqljobs.k8s.mariadb.com
-      - name: users.k8s.mariadb.com
-      - name: rbac.authorization.k8s.io
+        - name: backups.k8s.mariadb.com
+        - name: connections.k8s.mariadb.com
+        - name: databases.k8s.mariadb.com
+        - name: externalmariadbs.k8s.mariadb.com
+        - name: grants.k8s.mariadb.com
+        - name: mariadbs.k8s.mariadb.com
+        - name: maxscales.k8s.mariadb.com
+        - name: physicalbackups.k8s.mariadb.com
+        - name: pointintimerecoveries.k8s.mariadb.com
+        - name: restores.k8s.mariadb.com
+        - name: sqljobs.k8s.mariadb.com
+        - name: users.k8s.mariadb.com
       harnessRef:
         kind: OperatorHarness
         name: mariadb
+      rules:
+        - apiGroups:
+            - '*'
+          resources:
+            - '*'
+          verbs:
+            - '*'
     EOF
     kubectl -n hel-chrysopoeia wait --for condition=Ready \
         "claimdefinition/v26.mariadb-crds" --timeout 120s
