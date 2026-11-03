@@ -87,6 +87,10 @@ push: _guard-unlinked build
 touchstone: _setup_upstream_crds
     {{ CHAINSAW_CMD }} test --config test/touchstone/chainsaw-config.yaml test/touchstone --quiet
 
+# Read the reagent's purity: end-to-end test against a running athanor cluster (just ignite).
+touchstone-pause: _setup_upstream_crds
+    {{ CHAINSAW_CMD }} test --config test/touchstone/chainsaw-config.yaml test/touchstone --quiet --pause-on-failure
+
 # Push main, tag the current commit and push the tag to trigger the release
 release: _guard-unlinked
     #!/usr/bin/env bash
@@ -293,6 +297,7 @@ _setup_upstream_crds:
             - mariadbs/finalizers
           verbs:
             - update
+            - patch
       crds:
         - name: backups.k8s.mariadb.com
         - name: connections.k8s.mariadb.com
