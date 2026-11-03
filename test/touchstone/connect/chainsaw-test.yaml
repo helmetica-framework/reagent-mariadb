@@ -55,8 +55,8 @@ spec:
             file: sources.yaml
         - assert:
             resource:
-              apiVersion: helmetica.io/v1
-              kind: CustomResourceDefinitionSource
+              apiVersion: chrysopoeia.helmetica.io/v1
+              kind: ClaimDefinition
               metadata:
                 name: (join('', ['v', $major, '-', $id, '.', $chart]))
                 namespace: hel-chrysopoeia
