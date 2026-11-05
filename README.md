@@ -38,9 +38,17 @@ the schema is generated from) and of the namespace chainsaw creates for the test
 Every test therefore gets its own group and CRD, so tests running side by side,
 whether siblings of one run or two runs on a shared cluster, cannot clash.
 
-`just test` runs `helm lint` and the offline unit tests in `test/unit`, which assert
-that the templates render as expected (helm-unittest plugin, installed by the
-recipe if missing). No cluster needed.
+`just test` runs `helm lint` and the offline golden tests in `test/unit` (helm-unittest
+plugin, installed by the recipe if missing). No cluster needed.
+
+Each directory in `test/unit/scenarios` is a scenario: its `values.yaml` is what a claim
+would set, and `test/unit/__snapshot__` holds everything the chart renders for it. A
+change to the chart shows up as a diff of the snapshot. Once the diff is the change you
+wanted, `just gen-golden-all` takes it.
+
+The `cel:` expressions in `values.yaml` are chrysopoeia's to evaluate, not helm's, so each
+scenario renders with a `computed.yaml` next to its values. `just values` writes them, and
+`just test` fails when one has drifted.
 
 
 All three are generic and only check that the chart installs and renders

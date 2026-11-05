@@ -1,0 +1,42 @@
+{{- /*
+  The PhysicalBackup mariadb-operator takes the backups with. Its bucket only exists once
+  ampulla provisioned it for the instance's BackupPolicy, so ampulla writes the object and
+  fills in the ${...} placeholders from the policy's status.
+*/}}
+{{- if .Values.backup.enabled }}
+{{- $mariadb := printf "%s-vshnmariadb" .Release.Name }}
+apiVersion: ampulla.helmetica.io/v1
+kind: BackupTemplate
+metadata:
+  name: {{ .Release.Name }}
+  labels:
+    {{- include "azoth.labels" . | nindent 4 }}
+spec:
+  policyName: {{ .Release.Name }}
+  template:
+    apiVersion: k8s.mariadb.com/v1alpha1
+    kind: PhysicalBackup
+    metadata:
+      name: {{ $mariadb }}
+    spec:
+      mariaDbRef:
+        name: {{ $mariadb }}
+      maxRetention: {{ .Values.backup.maxRetention | quote }}
+      schedule:
+        cron: {{ .Values.backup.schedule.backup | default (include "mariadb.nightlySchedule" (printf "%s/%s" .Release.Namespace .Release.Name)) | quote }}
+      storage:
+        s3:
+          bucket: "${s3.bucket}"
+          endpoint: "${s3.hostPort}"
+          region: "${s3.region}"
+          tls:
+            enabled: "${s3.tls}"
+          accessKeyIdSecretKeyRef: "${s3.accessKeyRef}"
+          secretAccessKeySecretKeyRef: "${s3.secretKeyRef}"
+      stagingStorage:
+        persistentVolumeClaim:
+          accessModes: [ReadWriteOnce]
+          resources:
+            requests:
+              storage: {{ .Values.vshnmariadb.storage.size | quote }}
+{{- end }}

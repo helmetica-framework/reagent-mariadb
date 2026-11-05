@@ -1,0 +1,45 @@
+suite: mariadb reagent
+# The namespace is pinned because the nightly backup time is hashed out of
+# namespace and name: another namespace is another time.
+release:
+  name: instance
+  namespace: instance-ns
+tests:
+  # A snapshot pins every field of every rendered resource, so a change nobody
+  # meant to make shows up as a diff. Read the diff, then take it with
+  # `just gen-golden-all` once it is the change you wanted.
+  #
+  # Each scenario reads its own values first and the values its cel: expressions
+  # compute second, the same order the cluster resolves them in. `just values`
+  # writes the computed half; `just test` fails when it has drifted.
+  - it: renders what it rendered last time
+    values:
+      - ./scenarios/default/values.yaml
+      - ./scenarios/default/computed.yaml
+    asserts:
+      - matchSnapshot: {}
+
+  # Three replicas turn on galera in the MariaDB the subchart renders.
+  - it: renders in ha
+    values:
+      - ./scenarios/ha/values.yaml
+      - ./scenarios/ha/computed.yaml
+    asserts:
+      - matchSnapshot: {}
+
+  # Both the BackupPolicy azoth renders and the BackupTemplate disappear, rather
+  # than rendering disabled.
+  - it: renders without backups
+    values:
+      - ./scenarios/backup-disabled/values.yaml
+      - ./scenarios/backup-disabled/computed.yaml
+    asserts:
+      - matchSnapshot: {}
+
+  # The schedule and the retention reach the PhysicalBackup ampulla renders.
+  - it: renders with a backup schedule and retention of its own
+    values:
+      - ./scenarios/backup-custom/values.yaml
+      - ./scenarios/backup-custom/computed.yaml
+    asserts:
+      - matchSnapshot: {}

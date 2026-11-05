@@ -1,0 +1,3 @@
+# Three replicas, which is what turns on galera.
+service:
+  replicas: 3

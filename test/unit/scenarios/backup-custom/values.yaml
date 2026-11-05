@@ -1,0 +1,6 @@
+# A backup with a schedule and a retention of its own, instead of the nightly time
+# generated from the instance's name and the default 30 days.
+backup:
+  schedule:
+    backup: "0 2 * * *"
+  maxRetention: 168h
