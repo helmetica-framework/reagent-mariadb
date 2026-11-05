@@ -73,6 +73,15 @@ credentials:
   # Defaults to releaseName-credentials.
   targetSecret: ""
 
+alerting:
+  enabled: true
+  serviceOperator:
+    '#emailAddresses':
+      items:
+        '#':
+          type: string
+    emailAddresses: []
+
 # The service's values go here
 service:
   '#replicas':
