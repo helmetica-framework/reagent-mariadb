@@ -33,6 +33,17 @@ its purity, which is what the test does to a reagent.
 PRs run the touchstone tests automatically, through athanor's `touchstone`
 composite action.
 
+The shared steps live in `test/touchstone/shared/claim.yaml`, a chainsaw step
+template. A new test is a folder with three files:
+
+- `chainsaw-test.yaml`: a step with `use.template: ../shared/claim.yaml`.
+- `instance.yaml`: the claim and the values to test.
+- `assert.yaml`: what must exist once the release is ready. `$instanceNs` is
+  the namespace the chart was released into.
+
+The claim is called `instance`. To change the name, pass an `instance` binding
+with `use.with.bindings`. Steps after the template do not see its bindings.
+
 The generated CRD's API group carries a short hash of `values.yaml` (the file
 the schema is generated from) and of the namespace chainsaw creates for the test.
 Every test therefore gets its own group and CRD, so tests running side by side,

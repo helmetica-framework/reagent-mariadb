@@ -290,7 +290,7 @@ _setup_upstream_crds:
             - subjectaccessreviews
           verbs:
             - create
-        # MariaDB has a bug where they make an `ownerReference` from a cluster scoped object to a namespaced object. This is allowed in the API and just leads to a Warning event from the GC. It also means that RBAC is weird, we need cluster scoped mariadb access to namespaced resources.
+        # MariaDB has a bug where they make an ownerReference from a cluster scoped object to a namespaced object. This is allowed in the API and just leads to a Warning event from the GC. It also means that RBAC is weird, we need cluster scoped mariadb access to namespaced resources.
         - apiGroups:
             - k8s.mariadb.com
           resources:

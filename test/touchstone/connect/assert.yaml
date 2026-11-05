@@ -1,0 +1,9 @@
+# Asserted once the HelmRelease is ready.
+#
+# Custos writes the resolved credentials beside the claim rather than beside the
+# service, so this lands in the test's own namespace.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mariadb-credentials
+type: Opaque
