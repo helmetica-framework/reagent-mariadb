@@ -1,0 +1,70 @@
+suite: backup
+release:
+  name: instance
+  namespace: instance-ns
+templates:
+  - backup.yaml
+tests:
+  - it: renders nothing unless backups are enabled
+    set:
+      backup.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: has ampulla render a PhysicalBackup with the policy's bucket
+    asserts:
+      - isKind:
+          of: BackupTemplate
+      - isAPIVersion:
+          of: ampulla.helmetica.io/v1
+      # azoth names the BackupPolicy after the release.
+      - equal:
+          path: spec.policyName
+          value: instance
+      - equal:
+          path: spec.template.kind
+          value: PhysicalBackup
+      - equal:
+          path: spec.template.spec.mariaDbRef.name
+          value: instance-vshnmariadb
+      - equal:
+          path: spec.template.spec.maxRetention
+          value: 720h
+      # Filled in by ampulla, not by helm.
+      - equal:
+          path: spec.template.spec.storage.s3.bucket
+          value: ${s3.bucket}
+      # Requests are signed for this region; the operator's us-east-1 default is rejected
+      # by any other.
+      - equal:
+          path: spec.template.spec.storage.s3.region
+          value: ${s3.region}
+      - equal:
+          path: spec.template.spec.storage.s3.tls.enabled
+          value: ${s3.tls}
+      - equal:
+          path: spec.template.spec.storage.s3.accessKeyIdSecretKeyRef
+          value: ${s3.accessKeyRef}
+
+  - it: gives an instance the same nightly time on every render
+    asserts:
+      - equal:
+          path: spec.template.spec.schedule.cron
+          value: "12 23 * * *"
+
+  - it: passes the values through
+    set:
+      backup.schedule.backup: "0 2 * * *"
+      backup.maxRetention: 168h
+      vshnmariadb.storage.size: 5Gi
+    asserts:
+      - equal:
+          path: spec.template.spec.schedule.cron
+          value: "0 2 * * *"
+      - equal:
+          path: spec.template.spec.maxRetention
+          value: 168h
+      - equal:
+          path: spec.template.spec.stagingStorage.persistentVolumeClaim.resources.requests.storage
+          value: 5Gi
