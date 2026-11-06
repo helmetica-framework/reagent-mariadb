@@ -110,7 +110,7 @@ release: _guard-unlinked
 _setup_upstream_crds:
     #!/usr/bin/env bash
     set -euo pipefail
-    kubectl apply -f - <<EOF
+    kubectl apply -f - <<'EOF'
     # Install and configure upstream MariaDB crds, operator and cluster
     apiVersion: image.toolkit.fluxcd.io/v1
     kind: ImageRepository
