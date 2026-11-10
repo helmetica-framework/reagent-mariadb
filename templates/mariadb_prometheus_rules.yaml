@@ -67,3 +67,13 @@ spec:
       labels:
         service: frontend
         severity: warning
+        apiVersion: monitoring.coreos.com/v1
+    {{- if .Values.debug.heartbeatAlert }}
+    - alert: HeartbeatAlert
+      expr: |
+        vector(1)
+      for: 0s
+      labels:
+        severity: info
+        audience: service_operator
+    {{- end }}
