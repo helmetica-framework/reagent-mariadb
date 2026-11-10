@@ -56,18 +56,6 @@ spec:
       labels:
         service: backend
         severity: warning
-    - alert: HAProxyBackendsDown
-      annotations:
-        message: HAProxy instances in namespace {{ "{{$labels.namespace}}" }} are missing
-          some backends
-      expr: |
-        avg without(instance,pod,server) (haproxy_server_status{proxy="galera-nodes", state="UP"}) != 1
-        AND group without(instance,pod,server) (haproxy_server_status{proxy="galera-nodes", state="UP"} offset 20m)
-      for: 5m
-      labels:
-        service: frontend
-        severity: warning
-        apiVersion: monitoring.coreos.com/v1
     {{- if .Values.debug.heartbeatAlert }}
     - alert: HeartbeatAlert
       expr: |
