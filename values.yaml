@@ -82,6 +82,12 @@ alerting:
           type: string
     emailAddresses: []
 
+# Debug holds methods to debug the Helmetica bundle.
+debug:
+  # heartbeatAlert adds an alert always evaluating to be firing.
+  heartbeatAlert: false
+
+
 # The service's values go here
 service:
   '#replicas':
