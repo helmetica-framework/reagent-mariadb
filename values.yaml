@@ -108,6 +108,7 @@ service:
 '#vshnmariadb':
   export: false
 vshnmariadb:
+  fullnameOverride: "mariadb"
   replicas: "cel: values.service.replicas"
   plan: "cel: values.service.plan"
   myCnf: ""
