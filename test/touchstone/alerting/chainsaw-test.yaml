@@ -1,0 +1,50 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: alerting
+spec:
+  description: >-
+    End to End tests creating an alert for MariaDB.
+    Same basic setup as the install test.
+  steps:
+    - name: Create instance
+      use:
+        template: ../shared/claim.yaml
+        with:
+          bindings:
+            - name: instance
+              value: mariadb
+    - name: Check HeartbeatAlert status
+      try:
+      - script:
+          env:
+            - name: NAMESPACE
+              value: ($namespace)
+          content: |
+            kubectl get configmap generated-namespace \
+              -n $NAMESPACE \
+              -o jsonpath='{.data.namespace}'
+          outputs:
+            - name: instanceNS
+              value: ($stdout)
+      - script:
+          env:
+            - name: INSTANCE_NS
+              value: ($instanceNS)
+          content: |
+            attempts=0
+            found=false
+            while [ "$attempts" -lt 24 ]; do
+              if kubectl get --raw '/api/v1/namespaces/syn-helmetica-framework-monitoring/services/prometheus:9090/proxy/api/v1/rules' 2>/dev/null \
+                | jq --arg ns "$INSTANCE_NS" -e 'any(.data.groups[].rules[]?; .name == "HeartbeatAlert" and .state == "firing" and .labels.namespace == $ns)' >/dev/null; then
+                found=true
+                break
+              fi
+              attempts=$((attempts + 1))
+              sleep 5
+            done
+            printf '%s' "$found"
+            exit 0
+          check:
+            ($stdout): 'true'
+            ($error == null): true
