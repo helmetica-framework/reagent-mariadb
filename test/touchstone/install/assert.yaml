@@ -3,12 +3,13 @@
 #
 # Add the reagent's own workload here as well, e.g. its StatefulSet becoming ready.
 # ---
-# apiVersion: apps/v1
-# kind: StatefulSet
-# metadata:
-#   name: myservice
-#   namespace: ($instanceNs)
-# (status.readyReplicas == spec.replicas): true
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mariadb
+  namespace: ($instanceNs)
+(status.readyReplicas == spec.replicas): true
+---
 apiVersion: adept.helmetica.io/v1
 kind: Definition
 metadata:
