@@ -520,13 +520,7 @@ infuse namespace="default" id="": _setup_upstream_crds build
         strategy: Automatic
       version: '{{ version }}'
       # Defaults of the chart's values.yaml.
-      values:
-        service:
-          replicas: 3
-        alerting:
-          enabled: true
-        debug:
-          heartbeatAlert: true
+      values: {}
     EOF
 
     # add default intra namespace pod networking policy
