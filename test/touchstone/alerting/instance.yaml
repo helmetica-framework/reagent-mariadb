@@ -1,0 +1,13 @@
+apiVersion: (join('', ['v', $major, '-', $id, '.', $chart, '.helmetica-bundles.io/bundle']))
+kind: ($kind)
+metadata:
+  name: ($instance)
+spec:
+  approval:
+    strategy: Automatic
+  version: ($version)
+  values:
+    alerting:
+      enabled: true
+    debug:
+      heartbeatAlert: true

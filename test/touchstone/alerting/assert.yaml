@@ -1,0 +1,7 @@
+# Asserted once the HelmRelease is ready.
+#
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: mariadb
+  namespace: ($instanceNs)
