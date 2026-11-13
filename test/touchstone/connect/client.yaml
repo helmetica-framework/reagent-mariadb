@@ -14,7 +14,7 @@ spec:
       volumes:
         - name: ca-crt
           secret:
-            secretName: mariadb-credentials
+            secretName: ($secret)
             items:
               - key: "CA.CRT"
                 path: "ca.pem"
@@ -26,7 +26,7 @@ spec:
           # consumer would read.
           envFrom:
             - secretRef:
-                name: mariadb-credentials
+                name: ($secret)
           volumeMounts:
             - name: ca-crt
               mountPath: "/etc/ssl/mariadb/"

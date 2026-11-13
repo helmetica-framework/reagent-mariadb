@@ -52,9 +52,8 @@ maintenance:
   suspend: false
 
 credentials:
-  # Secret name which will contain the service's connection details.
-  # Defaults to releaseName-credentials.
-  targetSecret: ""
+  # Prefix of the Secret name holding the connection details. Defaults to the claim name.
+  prefix: ""
 
 alerting:
   enabled: true

@@ -207,8 +207,6 @@ renders in ha:
             kind: Secret
             name: instance-vshnmariadb-ca
             source: objectRef
-      target:
-        name: instance-credentials
   8: |
     apiVersion: monitoring.coreos.com/v1
     kind: PrometheusRule
@@ -514,8 +512,6 @@ renders what it rendered last time:
             kind: Secret
             name: instance-vshnmariadb-ca
             source: objectRef
-      target:
-        name: instance-credentials
   8: |
     apiVersion: monitoring.coreos.com/v1
     kind: PrometheusRule
@@ -821,8 +817,6 @@ renders with a backup schedule and retention of its own:
             kind: Secret
             name: instance-vshnmariadb-ca
             source: objectRef
-      target:
-        name: instance-credentials
   8: |
     apiVersion: monitoring.coreos.com/v1
     kind: PrometheusRule
@@ -1077,8 +1071,6 @@ renders without backups:
             kind: Secret
             name: instance-vshnmariadb-ca
             source: objectRef
-      target:
-        name: instance-credentials
   6: |
     apiVersion: monitoring.coreos.com/v1
     kind: PrometheusRule
