@@ -1,45 +1,28 @@
-# How this service is backed up. The backup controller reads these off the instance; the
-# framework itself knows nothing about backups.
+# How this service is backed up. mariadb-operator takes the backups itself with a
+# PhysicalBackup (templates/backup.yaml); ampulla provisions the bucket it writes to.
 backup:
   # Whether the service is backed up at all.
   enabled: true
 
-  # Who takes the backups.
-  #   Schedule   - the backup controller provisions a bucket and drives k8up over the
-  #                service's volumes.
-  #   BucketOnly - it provisions the bucket and stops there, for a service whose own
-  #                operator writes backups to object storage (CloudNativePG, MariaDB).
+  # The operator writes the backups, ampulla only provisions the bucket. Not settable on a
+  # claim: a k8up copy of a running database's volumes is no consistent backup.
   '#mode':
-    type: string
-    enum: [Schedule, BucketOnly]
-  mode: Schedule
+    export: false
+  mode: BucketOnly
 
-  # When each job runs, as a cron expression or a k8up shortcut like `@daily-random`.
-  # Only used with mode Schedule.
-  #
-  # An empty backup gets a nightly time between 22:00 and 06:00, generated from the name
-  # of the instance so that it stays put across upgrades and no two instances start in the
-  # same minute. Empty prune and check take the backup controller's default, which runs
-  # them weekly.
+  # When the backup runs, as a cron expression. Empty gets a nightly time between 22:00
+  # and 06:00, generated from the name of the instance so that it stays put across
+  # upgrades and no two instances start in the same minute.
   schedule:
     backup: ""
-    prune: ""
-    check: ""
+
+  # How long a backup is kept, as a duration.
+  maxRetention: 720h
 
   # The COSI classes the bucket is provisioned from. Empty takes the backup controller's
   # default, which is how a cluster keeps all its backups in one place.
   bucketClassName: ""
   bucketAccessClassName: ""
-
-  # How many backups survive a prune. All zero takes the backup controller's default
-  # retention. Only used with mode Schedule.
-  retention:
-    keepLast: 0
-    keepHourly: 0
-    keepDaily: 0
-    keepWeekly: 0
-    keepMonthly: 0
-    keepYearly: 0
 
 network:
   # Whether the framework seals this service off at all. Not settable on a claim.
@@ -141,3 +124,8 @@ vshnmariadb:
   updateStrategy:
     autoUpdateDataPlane: false
     type: ReplicasFirstPrimaryLast
+
+  # The upstream chart's own PhysicalBackup needs the bucket up front. templates/backup.yaml
+  # replaces it.
+  backup:
+    enabled: false

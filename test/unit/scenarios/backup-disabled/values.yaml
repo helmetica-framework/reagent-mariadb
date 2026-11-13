@@ -1,0 +1,4 @@
+# A service nobody backs up. The framework gates the BackupPolicy on this, and
+# templates/backup.yaml its BackupTemplate.
+backup:
+  enabled: false
