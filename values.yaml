@@ -52,6 +52,13 @@ maintenance:
   suspend: false
 
 credentials:
+  # Rendered by templates/credentials.yaml rather than azoth: the mapping varies with the
+  # replica count, which is a helm decision this chart makes for itself. Not settable on a
+  # claim.
+  '#enabled':
+    export: false
+  enabled: false
+
   # Prefix of the Secret name holding the connection details. Defaults to the claim name.
   prefix: ""
 
