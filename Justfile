@@ -497,7 +497,7 @@ infuse namespace="default" id="": _setup_upstream_crds build
       interval: 5m
       provider: generic
       ref:
-        semver: '{{ major }}.x'
+        semver: '>=0.0.0-0'
       url: oci://{{ ATHANOR_REGISTRY_INTERNAL }}/{{ chart }}
     ---
     apiVersion: image.toolkit.fluxcd.io/v1

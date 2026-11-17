@@ -1,0 +1,4 @@
+alerting:
+  serviceOperator:
+    emailAddresses:
+      - max.mustermann@company.com

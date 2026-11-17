@@ -1,7 +1,7 @@
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
-  name: {{ template "mariadb.name" . }}
+  name: {{ template "mariadb.fullname" . }}
   namespace: {{ .Release.Namespace | quote }}
   labels:
     {{- include "azoth.labels" . | nindent 4 }}
@@ -56,14 +56,12 @@ spec:
       labels:
         service: backend
         severity: warning
-    - alert: HAProxyBackendsDown
-      annotations:
-        message: HAProxy instances in namespace {{ "{{$labels.namespace}}" }} are missing
-          some backends
+    {{- if .Values.debug.heartbeatAlert }}
+    - alert: HeartbeatAlert
       expr: |
-        avg without(instance,pod,server) (haproxy_server_status{proxy="galera-nodes", state="UP"}) != 1
-        AND group without(instance,pod,server) (haproxy_server_status{proxy="galera-nodes", state="UP"} offset 20m)
-      for: 5m
+        vector(1)
+      for: 0s
       labels:
-        service: frontend
-        severity: warning
+        severity: info
+        audience: service_operator
+    {{- end }}

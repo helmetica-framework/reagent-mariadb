@@ -4,7 +4,7 @@
   fills in the ${...} placeholders from the policy's status.
 */}}
 {{- if .Values.backup.enabled }}
-{{- $mariadb := printf "%s-vshnmariadb" .Release.Name }}
+{{- $mariadb := "mariadb" }}
 apiVersion: ampulla.helmetica.io/v1
 kind: BackupTemplate
 metadata:
@@ -23,7 +23,7 @@ spec:
         name: {{ $mariadb }}
       maxRetention: {{ .Values.backup.maxRetention | quote }}
       schedule:
-        cron: {{ .Values.backup.schedule.backup | default (include "mariadb.nightlySchedule" (printf "%s/%s" .Release.Namespace .Release.Name)) | quote }}
+        cron: {{ .Values.backup.schedule.backup | default (include "azoth.nightlySchedule" (printf "%s/%s" .Release.Namespace .Release.Name)) | quote }}
       storage:
         s3:
           bucket: "${s3.bucket}"

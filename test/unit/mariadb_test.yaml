@@ -43,3 +43,19 @@ tests:
       - ./scenarios/backup-custom/computed.yaml
     asserts:
       - matchSnapshot: {}
+
+  # Emits prometheusrule without debug heartbeat alert and e-mail 
+  - it: renders alerting with e-mail
+    values:
+      - ./scenarios/alerting/values.yaml
+      - ./scenarios/alerting/computed.yaml
+    asserts:
+      - matchSnapshot: {}
+
+  # Prometheusrule shouldn't be emited even with debug.heartbeatAlert=true 
+  - it: renders alerting disabled
+    values:
+      - ./scenarios/alerting-disabled/values.yaml
+      - ./scenarios/alerting-disabled/computed.yaml
+    asserts:
+      - matchSnapshot: {}
