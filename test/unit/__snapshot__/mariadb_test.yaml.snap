@@ -1,3 +1,562 @@
+renders alerting disabled:
+  1: |
+    apiVersion: k8s.mariadb.com/v1alpha1
+    kind: MariaDB
+    metadata:
+      labels:
+        app.kubernetes.io/instance: instance
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: vshnmariadb
+        helm.sh/chart: vshnmariadb-0.0.16
+      name: mariadb
+    spec:
+      galera:
+        agent:
+          basicAuth:
+            enabled: true
+            passwordSecretKeyRef:
+              generate: true
+              key: password
+              name: galera-basic-auth
+          kubernetesAuth:
+            enabled: false
+        config:
+          reuseStorageVolume: true
+        enabled: false
+        providerOptions:
+          cert.log_conflicts: "yes"
+          gcs.fc_single_primary: "yes"
+        recovery:
+          clusterBootstrapTimeout: 30m
+          podSyncTimeout: 30m
+      image: mariadb:11.8.8
+      metrics:
+        enabled: true
+        exporter:
+          image: docker.io/prom/mysqld-exporter:v0.18.0@sha256:2598c0571f383708e19016d119bb45c06128a9ebc962c9f49483278ac5a94c41
+      myCnf: ""
+      replicas: 1
+      rootPasswordSecretKeyRef:
+        generate: true
+        key: root
+        name: mariadb-cluster-root
+      startupProbe:
+        failureThreshold: 120
+      storage:
+        size: 1Gi
+      tls:
+        enabled: true
+        required: false
+      updateStrategy:
+        autoUpdateDataPlane: false
+  2: |
+    apiVersion: sigillum.helmetica.io/v1
+    kind: NetworkConfig
+    metadata:
+      labels:
+        app.kubernetes.io/instance: instance
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: mariadb
+        helm.sh/chart: mariadb-0.0.4
+      name: networkconfig
+    spec:
+      allowAllNamespaces: false
+      allowedNamespaces: []
+  3: |
+    apiVersion: ampulla.helmetica.io/v1
+    kind: BackupPolicy
+    metadata:
+      labels:
+        app.kubernetes.io/instance: instance
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: mariadb
+        helm.sh/chart: mariadb-0.0.4
+      name: instance
+    spec:
+      mode: BucketOnly
+  4: |
+    apiVersion: networking.k8s.io/v1
+    kind: NetworkPolicy
+    metadata:
+      labels:
+        app.kubernetes.io/instance: instance
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: mariadb
+        helm.sh/chart: mariadb-0.0.4
+      name: allow-monitoring
+    spec:
+      ingress:
+        - from:
+            - namespaceSelector:
+                matchLabels:
+                  helmetica.io/monitoring: system
+      podSelector: {}
+      policyTypes:
+        - Ingress
+  5: |
+    apiVersion: ampulla.helmetica.io/v1
+    kind: BackupTemplate
+    metadata:
+      labels:
+        app.kubernetes.io/instance: instance
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: mariadb
+        helm.sh/chart: mariadb-0.0.4
+      name: instance
+    spec:
+      policyName: instance
+      template:
+        apiVersion: k8s.mariadb.com/v1alpha1
+        kind: PhysicalBackup
+        metadata:
+          name: mariadb
+        spec:
+          mariaDbRef:
+            name: mariadb
+          maxRetention: 720h
+          schedule:
+            cron: 12 23 * * *
+          stagingStorage:
+            persistentVolumeClaim:
+              accessModes:
+                - ReadWriteOnce
+              resources:
+                requests:
+                  storage: 1Gi
+          storage:
+            s3:
+              accessKeyIdSecretKeyRef: ${s3.accessKeyRef}
+              bucket: ${s3.bucket}
+              endpoint: ${s3.hostPort}
+              region: ${s3.region}
+              secretAccessKeySecretKeyRef: ${s3.secretKeyRef}
+              tls:
+                enabled: ${s3.tls}
+  6: |
+    apiVersion: custos.helmetica.io/v1
+    kind: CredentialConfig
+    metadata:
+      labels:
+        app.kubernetes.io/instance: instance
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: mariadb
+        helm.sh/chart: mariadb-0.0.4
+      name: credentials
+    spec:
+      credentials:
+        valueMapping:
+          MARIADB_HOST:
+            source: template
+            value: mariadb.{{.InstanceNamespace}}.svc.cluster.local
+          MARIADB_PASSWORD:
+            key: root
+            kind: Secret
+            name: mariadb-cluster-root
+            source: objectRef
+          MARIADB_PORT:
+            source: const
+            value: "3306"
+          MARIADB_URL:
+            source: template
+            value: mariadb://{{.MARIADB_USERNAME}}:{{.MARIADB_PASSWORD | urlquery }}@{{.MARIADB_HOST}}:{{.MARIADB_PORT}}
+          MARIADB_USERNAME:
+            source: const
+            value: root
+          ca.crt:
+            key: ca.crt
+            kind: Secret
+            name: mariadb-ca
+            source: objectRef
+  7: |
+    apiVersion: monitoring.coreos.com/v1
+    kind: PrometheusRule
+    metadata:
+      labels:
+        app.kubernetes.io/instance: instance
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: mariadb
+        helm.sh/chart: mariadb-0.0.4
+      name: instance-mariadb
+      namespace: instance-ns
+    spec:
+      groups:
+        - name: mariadb-rules
+          rules:
+            - alert: MySQLGaleraPvcFull
+              annotations:
+                message: The Galera cluster {{$labels.instance}} is out of disk space.
+                runbook_url: https://kb.vshn.ch/app-catalog/csp/spks/runbooks/mariadb_galera/MySQLGaleraNotReady.html
+              expr: |
+                (kubelet_volume_stats_available_bytes{job="kubelet",metrics_path="/metrics"} / kubelet_volume_stats_capacity_bytes{job="kubelet",metrics_path="/metrics"}) < 0.01 and kubelet_volume_stats_used_bytes{job="kubelet",metrics_path="/metrics"} > 0
+              for: 5m
+              labels:
+                service: storage
+                severity: warning
+            - alert: MySQLGaleraClusterDown
+              annotations:
+                message: Galera cluster {{$labels.instance}} is down.
+                runbook_url: https://kb.vshn.ch/app-catalog/csp/spks/runbooks/mariadb_galera/MySQLGaleraClusterDown.html
+              expr: |
+                (
+                  sum by(namespace) (mysql_up{service="mariadb-metrics"}) < 1
+                  or
+                  sum by(namespace) (kube_statefulset_status_replicas_ready{statefulset="mariadb"}) < 1
+                )
+                and on(namespace)
+                kube_statefulset_replicas{statefulset="mariadb"} > 0
+              for: 5m
+              labels:
+                service: backend-core
+                severity: critical
+            - alert: MySQLInnoDBLogWaits
+              annotations:
+                message: The innodb logs of node ({{$labels.pod}}) in namespace {{$labels.namespace}} are waiting for disk at a rate of {{$value}} / second
+                runbook_url: https://kb.vshn.ch/app-catalog/csp/spks/runbooks/mariadb_galera/MySQLInnoDBLogWaits.html
+              expr: |
+                rate(mysql_global_status_innodb_log_waits[15m]) > 10
+              labels:
+                service: backend
+                severity: info
+            - alert: MySQLGaleraClusterEvenNodes
+              annotations:
+                message: Galera Cluster in namespace {{$labels.namespace}} had an even number of nodes during the last 30m
+                runbook_url: https://kb.vshn.ch/app-catalog/csp/spks/runbooks/mariadb_galera/MySQLGaleraClusterEvenNodes.html
+              expr: |
+                avg by(namespace) (mysql_global_status_wsrep_cluster_size) % 2 != 1
+              for: 30m
+              labels:
+                service: backend
+                severity: warning
+            - alert: HeartbeatAlert
+              expr: |
+                vector(1)
+              for: 0s
+              labels:
+                audience: service_operator
+                severity: info
+  8: |
+    apiVersion: adept.helmetica.io/v1
+    kind: Definition
+    metadata:
+      labels:
+        app.kubernetes.io/instance: instance
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: mariadb
+        helm.sh/chart: mariadb-0.0.4
+      name: restart
+    spec:
+      description: Restart the application
+      jobTemplate:
+        spec:
+          template:
+            spec:
+              containers:
+                - args:
+                    - rollout
+                    - restart
+                    - statefulset/instance
+                  command:
+                    - kubectl
+                  image: registry.k8s.io/kubectl:v1.34.1
+                  name: restart
+              restartPolicy: Never
+renders alerting with e-mail:
+  1: |
+    apiVersion: k8s.mariadb.com/v1alpha1
+    kind: MariaDB
+    metadata:
+      labels:
+        app.kubernetes.io/instance: instance
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: vshnmariadb
+        helm.sh/chart: vshnmariadb-0.0.16
+      name: mariadb
+    spec:
+      galera:
+        agent:
+          basicAuth:
+            enabled: true
+            passwordSecretKeyRef:
+              generate: true
+              key: password
+              name: galera-basic-auth
+          kubernetesAuth:
+            enabled: false
+        config:
+          reuseStorageVolume: true
+        enabled: false
+        providerOptions:
+          cert.log_conflicts: "yes"
+          gcs.fc_single_primary: "yes"
+        recovery:
+          clusterBootstrapTimeout: 30m
+          podSyncTimeout: 30m
+      image: mariadb:11.8.8
+      metrics:
+        enabled: true
+        exporter:
+          image: docker.io/prom/mysqld-exporter:v0.18.0@sha256:2598c0571f383708e19016d119bb45c06128a9ebc962c9f49483278ac5a94c41
+      myCnf: ""
+      replicas: 1
+      rootPasswordSecretKeyRef:
+        generate: true
+        key: root
+        name: mariadb-cluster-root
+      startupProbe:
+        failureThreshold: 120
+      storage:
+        size: 1Gi
+      tls:
+        enabled: true
+        required: false
+      updateStrategy:
+        autoUpdateDataPlane: false
+  2: |
+    apiVersion: sigillum.helmetica.io/v1
+    kind: NetworkConfig
+    metadata:
+      labels:
+        app.kubernetes.io/instance: instance
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: mariadb
+        helm.sh/chart: mariadb-0.0.4
+      name: networkconfig
+    spec:
+      allowAllNamespaces: false
+      allowedNamespaces: []
+  3: |
+    apiVersion: ampulla.helmetica.io/v1
+    kind: BackupPolicy
+    metadata:
+      labels:
+        app.kubernetes.io/instance: instance
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: mariadb
+        helm.sh/chart: mariadb-0.0.4
+      name: instance
+    spec:
+      mode: BucketOnly
+  4: |
+    apiVersion: monitoring.coreos.com/v1alpha1
+    kind: AlertmanagerConfig
+    metadata:
+      labels:
+        app.kubernetes.io/instance: instance
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: mariadb
+        helm.sh/chart: mariadb-0.0.4
+      name: email-alerting
+    spec:
+      receivers:
+        - name: "null"
+        - emailConfigs:
+            - to: max.mustermann@company.com
+          name: service_operator
+        - name: service_user
+        - name: service_maintainer
+      route:
+        groupBy:
+          - alertname
+          - audience
+        groupInterval: 5s
+        groupWait: 0s
+        receiver: "null"
+        repeatInterval: 4h
+        routes:
+          - matchers:
+              - matchType: =
+                name: audience
+                value: service_operator
+            receiver: service_operator
+          - matchers:
+              - matchType: =
+                name: audience
+                value: service_user
+            receiver: service_user
+          - matchers:
+              - matchType: =
+                name: audience
+                value: service_maintainer
+            receiver: service_maintainer
+  5: |
+    apiVersion: networking.k8s.io/v1
+    kind: NetworkPolicy
+    metadata:
+      labels:
+        app.kubernetes.io/instance: instance
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: mariadb
+        helm.sh/chart: mariadb-0.0.4
+      name: allow-monitoring
+    spec:
+      ingress:
+        - from:
+            - namespaceSelector:
+                matchLabels:
+                  helmetica.io/monitoring: system
+      podSelector: {}
+      policyTypes:
+        - Ingress
+  6: |
+    apiVersion: ampulla.helmetica.io/v1
+    kind: BackupTemplate
+    metadata:
+      labels:
+        app.kubernetes.io/instance: instance
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: mariadb
+        helm.sh/chart: mariadb-0.0.4
+      name: instance
+    spec:
+      policyName: instance
+      template:
+        apiVersion: k8s.mariadb.com/v1alpha1
+        kind: PhysicalBackup
+        metadata:
+          name: mariadb
+        spec:
+          mariaDbRef:
+            name: mariadb
+          maxRetention: 720h
+          schedule:
+            cron: 12 23 * * *
+          stagingStorage:
+            persistentVolumeClaim:
+              accessModes:
+                - ReadWriteOnce
+              resources:
+                requests:
+                  storage: 1Gi
+          storage:
+            s3:
+              accessKeyIdSecretKeyRef: ${s3.accessKeyRef}
+              bucket: ${s3.bucket}
+              endpoint: ${s3.hostPort}
+              region: ${s3.region}
+              secretAccessKeySecretKeyRef: ${s3.secretKeyRef}
+              tls:
+                enabled: ${s3.tls}
+  7: |
+    apiVersion: custos.helmetica.io/v1
+    kind: CredentialConfig
+    metadata:
+      labels:
+        app.kubernetes.io/instance: instance
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: mariadb
+        helm.sh/chart: mariadb-0.0.4
+      name: credentials
+    spec:
+      credentials:
+        valueMapping:
+          MARIADB_HOST:
+            source: template
+            value: mariadb.{{.InstanceNamespace}}.svc.cluster.local
+          MARIADB_PASSWORD:
+            key: root
+            kind: Secret
+            name: mariadb-cluster-root
+            source: objectRef
+          MARIADB_PORT:
+            source: const
+            value: "3306"
+          MARIADB_URL:
+            source: template
+            value: mariadb://{{.MARIADB_USERNAME}}:{{.MARIADB_PASSWORD | urlquery }}@{{.MARIADB_HOST}}:{{.MARIADB_PORT}}
+          MARIADB_USERNAME:
+            source: const
+            value: root
+          ca.crt:
+            key: ca.crt
+            kind: Secret
+            name: mariadb-ca
+            source: objectRef
+  8: |
+    apiVersion: monitoring.coreos.com/v1
+    kind: PrometheusRule
+    metadata:
+      labels:
+        app.kubernetes.io/instance: instance
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: mariadb
+        helm.sh/chart: mariadb-0.0.4
+      name: instance-mariadb
+      namespace: instance-ns
+    spec:
+      groups:
+        - name: mariadb-rules
+          rules:
+            - alert: MySQLGaleraPvcFull
+              annotations:
+                message: The Galera cluster {{$labels.instance}} is out of disk space.
+                runbook_url: https://kb.vshn.ch/app-catalog/csp/spks/runbooks/mariadb_galera/MySQLGaleraNotReady.html
+              expr: |
+                (kubelet_volume_stats_available_bytes{job="kubelet",metrics_path="/metrics"} / kubelet_volume_stats_capacity_bytes{job="kubelet",metrics_path="/metrics"}) < 0.01 and kubelet_volume_stats_used_bytes{job="kubelet",metrics_path="/metrics"} > 0
+              for: 5m
+              labels:
+                service: storage
+                severity: warning
+            - alert: MySQLGaleraClusterDown
+              annotations:
+                message: Galera cluster {{$labels.instance}} is down.
+                runbook_url: https://kb.vshn.ch/app-catalog/csp/spks/runbooks/mariadb_galera/MySQLGaleraClusterDown.html
+              expr: |
+                (
+                  sum by(namespace) (mysql_up{service="mariadb-metrics"}) < 1
+                  or
+                  sum by(namespace) (kube_statefulset_status_replicas_ready{statefulset="mariadb"}) < 1
+                )
+                and on(namespace)
+                kube_statefulset_replicas{statefulset="mariadb"} > 0
+              for: 5m
+              labels:
+                service: backend-core
+                severity: critical
+            - alert: MySQLInnoDBLogWaits
+              annotations:
+                message: The innodb logs of node ({{$labels.pod}}) in namespace {{$labels.namespace}} are waiting for disk at a rate of {{$value}} / second
+                runbook_url: https://kb.vshn.ch/app-catalog/csp/spks/runbooks/mariadb_galera/MySQLInnoDBLogWaits.html
+              expr: |
+                rate(mysql_global_status_innodb_log_waits[15m]) > 10
+              labels:
+                service: backend
+                severity: info
+            - alert: MySQLGaleraClusterEvenNodes
+              annotations:
+                message: Galera Cluster in namespace {{$labels.namespace}} had an even number of nodes during the last 30m
+                runbook_url: https://kb.vshn.ch/app-catalog/csp/spks/runbooks/mariadb_galera/MySQLGaleraClusterEvenNodes.html
+              expr: |
+                avg by(namespace) (mysql_global_status_wsrep_cluster_size) % 2 != 1
+              for: 30m
+              labels:
+                service: backend
+                severity: warning
+  9: |
+    apiVersion: adept.helmetica.io/v1
+    kind: Definition
+    metadata:
+      labels:
+        app.kubernetes.io/instance: instance
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: mariadb
+        helm.sh/chart: mariadb-0.0.4
+      name: restart
+    spec:
+      description: Restart the application
+      jobTemplate:
+        spec:
+          template:
+            spec:
+              containers:
+                - args:
+                    - rollout
+                    - restart
+                    - statefulset/instance
+                  command:
+                    - kubectl
+                  image: registry.k8s.io/kubectl:v1.34.1
+                  name: restart
+              restartPolicy: Never
 renders in ha:
   1: |
     apiVersion: k8s.mariadb.com/v1alpha1
@@ -8,7 +567,7 @@ renders in ha:
         app.kubernetes.io/managed-by: Helm
         app.kubernetes.io/name: vshnmariadb
         helm.sh/chart: vshnmariadb-0.0.16
-      name: instance-vshnmariadb
+      name: mariadb
     spec:
       galera:
         agent:
@@ -33,7 +592,7 @@ renders in ha:
       metrics:
         enabled: true
         exporter:
-          image: nil
+          image: docker.io/prom/mysqld-exporter:v0.18.0@sha256:2598c0571f383708e19016d119bb45c06128a9ebc962c9f49483278ac5a94c41
       myCnf: ""
       replicas: 3
       rootPasswordSecretKeyRef:
@@ -149,10 +708,10 @@ renders in ha:
         apiVersion: k8s.mariadb.com/v1alpha1
         kind: PhysicalBackup
         metadata:
-          name: instance-vshnmariadb
+          name: mariadb
         spec:
           mariaDbRef:
-            name: instance-vshnmariadb
+            name: mariadb
           maxRetention: 720h
           schedule:
             cron: 12 23 * * *
@@ -187,7 +746,7 @@ renders in ha:
         valueMapping:
           MARIADB_HOST:
             source: template
-            value: instance-vshnmariadb.{{.InstanceNamespace}}.svc.cluster.local
+            value: mariadb.{{.InstanceNamespace}}.svc.cluster.local
           MARIADB_PASSWORD:
             key: root
             kind: Secret
@@ -205,7 +764,7 @@ renders in ha:
           ca.crt:
             key: ca.crt
             kind: Secret
-            name: instance-vshnmariadb-ca
+            name: mariadb-ca
             source: objectRef
   8: |
     apiVersion: monitoring.coreos.com/v1
@@ -216,7 +775,7 @@ renders in ha:
         app.kubernetes.io/managed-by: Helm
         app.kubernetes.io/name: mariadb
         helm.sh/chart: mariadb-0.0.4
-      name: mariadb
+      name: instance-mariadb
       namespace: instance-ns
     spec:
       groups:
@@ -266,16 +825,6 @@ renders in ha:
               for: 30m
               labels:
                 service: backend
-                severity: warning
-            - alert: HAProxyBackendsDown
-              annotations:
-                message: HAProxy instances in namespace {{$labels.namespace}} are missing some backends
-              expr: |
-                avg without(instance,pod,server) (haproxy_server_status{proxy="galera-nodes", state="UP"}) != 1
-                AND group without(instance,pod,server) (haproxy_server_status{proxy="galera-nodes", state="UP"} offset 20m)
-              for: 5m
-              labels:
-                service: frontend
                 severity: warning
   9: |
     apiVersion: adept.helmetica.io/v1
@@ -313,7 +862,7 @@ renders what it rendered last time:
         app.kubernetes.io/managed-by: Helm
         app.kubernetes.io/name: vshnmariadb
         helm.sh/chart: vshnmariadb-0.0.16
-      name: instance-vshnmariadb
+      name: mariadb
     spec:
       galera:
         agent:
@@ -338,7 +887,7 @@ renders what it rendered last time:
       metrics:
         enabled: true
         exporter:
-          image: nil
+          image: docker.io/prom/mysqld-exporter:v0.18.0@sha256:2598c0571f383708e19016d119bb45c06128a9ebc962c9f49483278ac5a94c41
       myCnf: ""
       replicas: 1
       rootPasswordSecretKeyRef:
@@ -454,10 +1003,10 @@ renders what it rendered last time:
         apiVersion: k8s.mariadb.com/v1alpha1
         kind: PhysicalBackup
         metadata:
-          name: instance-vshnmariadb
+          name: mariadb
         spec:
           mariaDbRef:
-            name: instance-vshnmariadb
+            name: mariadb
           maxRetention: 720h
           schedule:
             cron: 12 23 * * *
@@ -492,7 +1041,7 @@ renders what it rendered last time:
         valueMapping:
           MARIADB_HOST:
             source: template
-            value: instance-vshnmariadb.{{.InstanceNamespace}}.svc.cluster.local
+            value: mariadb.{{.InstanceNamespace}}.svc.cluster.local
           MARIADB_PASSWORD:
             key: root
             kind: Secret
@@ -510,7 +1059,7 @@ renders what it rendered last time:
           ca.crt:
             key: ca.crt
             kind: Secret
-            name: instance-vshnmariadb-ca
+            name: mariadb-ca
             source: objectRef
   8: |
     apiVersion: monitoring.coreos.com/v1
@@ -521,7 +1070,7 @@ renders what it rendered last time:
         app.kubernetes.io/managed-by: Helm
         app.kubernetes.io/name: mariadb
         helm.sh/chart: mariadb-0.0.4
-      name: mariadb
+      name: instance-mariadb
       namespace: instance-ns
     spec:
       groups:
@@ -571,16 +1120,6 @@ renders what it rendered last time:
               for: 30m
               labels:
                 service: backend
-                severity: warning
-            - alert: HAProxyBackendsDown
-              annotations:
-                message: HAProxy instances in namespace {{$labels.namespace}} are missing some backends
-              expr: |
-                avg without(instance,pod,server) (haproxy_server_status{proxy="galera-nodes", state="UP"}) != 1
-                AND group without(instance,pod,server) (haproxy_server_status{proxy="galera-nodes", state="UP"} offset 20m)
-              for: 5m
-              labels:
-                service: frontend
                 severity: warning
   9: |
     apiVersion: adept.helmetica.io/v1
@@ -618,7 +1157,7 @@ renders with a backup schedule and retention of its own:
         app.kubernetes.io/managed-by: Helm
         app.kubernetes.io/name: vshnmariadb
         helm.sh/chart: vshnmariadb-0.0.16
-      name: instance-vshnmariadb
+      name: mariadb
     spec:
       galera:
         agent:
@@ -643,7 +1182,7 @@ renders with a backup schedule and retention of its own:
       metrics:
         enabled: true
         exporter:
-          image: nil
+          image: docker.io/prom/mysqld-exporter:v0.18.0@sha256:2598c0571f383708e19016d119bb45c06128a9ebc962c9f49483278ac5a94c41
       myCnf: ""
       replicas: 1
       rootPasswordSecretKeyRef:
@@ -759,10 +1298,10 @@ renders with a backup schedule and retention of its own:
         apiVersion: k8s.mariadb.com/v1alpha1
         kind: PhysicalBackup
         metadata:
-          name: instance-vshnmariadb
+          name: mariadb
         spec:
           mariaDbRef:
-            name: instance-vshnmariadb
+            name: mariadb
           maxRetention: 168h
           schedule:
             cron: 0 2 * * *
@@ -797,7 +1336,7 @@ renders with a backup schedule and retention of its own:
         valueMapping:
           MARIADB_HOST:
             source: template
-            value: instance-vshnmariadb.{{.InstanceNamespace}}.svc.cluster.local
+            value: mariadb.{{.InstanceNamespace}}.svc.cluster.local
           MARIADB_PASSWORD:
             key: root
             kind: Secret
@@ -815,7 +1354,7 @@ renders with a backup schedule and retention of its own:
           ca.crt:
             key: ca.crt
             kind: Secret
-            name: instance-vshnmariadb-ca
+            name: mariadb-ca
             source: objectRef
   8: |
     apiVersion: monitoring.coreos.com/v1
@@ -826,7 +1365,7 @@ renders with a backup schedule and retention of its own:
         app.kubernetes.io/managed-by: Helm
         app.kubernetes.io/name: mariadb
         helm.sh/chart: mariadb-0.0.4
-      name: mariadb
+      name: instance-mariadb
       namespace: instance-ns
     spec:
       groups:
@@ -877,16 +1416,6 @@ renders with a backup schedule and retention of its own:
               labels:
                 service: backend
                 severity: warning
-            - alert: HAProxyBackendsDown
-              annotations:
-                message: HAProxy instances in namespace {{$labels.namespace}} are missing some backends
-              expr: |
-                avg without(instance,pod,server) (haproxy_server_status{proxy="galera-nodes", state="UP"}) != 1
-                AND group without(instance,pod,server) (haproxy_server_status{proxy="galera-nodes", state="UP"} offset 20m)
-              for: 5m
-              labels:
-                service: frontend
-                severity: warning
   9: |
     apiVersion: adept.helmetica.io/v1
     kind: Definition
@@ -923,7 +1452,7 @@ renders without backups:
         app.kubernetes.io/managed-by: Helm
         app.kubernetes.io/name: vshnmariadb
         helm.sh/chart: vshnmariadb-0.0.16
-      name: instance-vshnmariadb
+      name: mariadb
     spec:
       galera:
         agent:
@@ -948,7 +1477,7 @@ renders without backups:
       metrics:
         enabled: true
         exporter:
-          image: nil
+          image: docker.io/prom/mysqld-exporter:v0.18.0@sha256:2598c0571f383708e19016d119bb45c06128a9ebc962c9f49483278ac5a94c41
       myCnf: ""
       replicas: 1
       rootPasswordSecretKeyRef:
@@ -1051,7 +1580,7 @@ renders without backups:
         valueMapping:
           MARIADB_HOST:
             source: template
-            value: instance-vshnmariadb.{{.InstanceNamespace}}.svc.cluster.local
+            value: mariadb.{{.InstanceNamespace}}.svc.cluster.local
           MARIADB_PASSWORD:
             key: root
             kind: Secret
@@ -1069,7 +1598,7 @@ renders without backups:
           ca.crt:
             key: ca.crt
             kind: Secret
-            name: instance-vshnmariadb-ca
+            name: mariadb-ca
             source: objectRef
   6: |
     apiVersion: monitoring.coreos.com/v1
@@ -1080,7 +1609,7 @@ renders without backups:
         app.kubernetes.io/managed-by: Helm
         app.kubernetes.io/name: mariadb
         helm.sh/chart: mariadb-0.0.4
-      name: mariadb
+      name: instance-mariadb
       namespace: instance-ns
     spec:
       groups:
@@ -1130,16 +1659,6 @@ renders without backups:
               for: 30m
               labels:
                 service: backend
-                severity: warning
-            - alert: HAProxyBackendsDown
-              annotations:
-                message: HAProxy instances in namespace {{$labels.namespace}} are missing some backends
-              expr: |
-                avg without(instance,pod,server) (haproxy_server_status{proxy="galera-nodes", state="UP"}) != 1
-                AND group without(instance,pod,server) (haproxy_server_status{proxy="galera-nodes", state="UP"} offset 20m)
-              for: 5m
-              labels:
-                service: frontend
                 severity: warning
   7: |
     apiVersion: adept.helmetica.io/v1
