@@ -116,7 +116,7 @@ vshnmariadb:
   metrics:
     enabled: true
     exporter:
-      image: "docker.io/prom/mysqld-exporter:v0.18.0@sha256:2598c0571f383708e19016d119bb45c06128a9ebc962c9f49483278ac5a94c41"
+      image: "docker.io/prom/mysqld-exporter:v0.21.0@sha256:afad0c59a154fea24ca5ea0e6f95f2b0b168601b111266963dc8a347715b5318"
       port: 9104
     passwordSecretKeyRef:
       generate: true
