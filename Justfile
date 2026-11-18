@@ -9,6 +9,13 @@ AZOTH_LINK := ".azoth-link"
 # and as registry.kube-system.svc from inside the cluster.
 ATHANOR_REGISTRY := "localhost:5000/charts"
 ATHANOR_REGISTRY_INTERNAL := "registry.kube-system.svc:5000/charts"
+# Namespace where chrysopoeia runs. It only watches ClaimDefinitions there.
+# Empty when no cluster is reachable, so recipes that do not need one still run.
+HELMETICA_NAMESPACE := `
+  kubectl get deployment --all-namespaces \
+      --field-selector metadata.name=chrysopoeia-controller-manager \
+      -o jsonpath='{.items[0].metadata.namespace}' 2>/dev/null || true
+`
 
 # renovate: datasource=go depName=github.com/kyverno/chainsaw
 CHAINSAW_VERSION := "v0.2.15"
@@ -129,11 +136,13 @@ push: _guard-unlinked build
 
 # Read the reagent's purity: end-to-end test against a running athanor cluster (just ignite).
 touchstone: _setup_upstream_crds
-    {{ CHAINSAW_CMD }} test --config test/touchstone/chainsaw-config.yaml test/touchstone --quiet
+    {{ CHAINSAW_CMD }} test --config test/touchstone/chainsaw-config.yaml test/touchstone --quiet \
+        --set-string helmeticaNamespace={{ HELMETICA_NAMESPACE }}
 
 # Read the reagent's purity: end-to-end test against a running athanor cluster (just ignite).
 touchstone-pause: _setup_upstream_crds
-    {{ CHAINSAW_CMD }} test --config test/touchstone/chainsaw-config.yaml test/touchstone --quiet --pause-on-failure
+    {{ CHAINSAW_CMD }} test --config test/touchstone/chainsaw-config.yaml test/touchstone --quiet \
+        --set-string helmeticaNamespace={{ HELMETICA_NAMESPACE }} --pause-on-failure
 
 # Push main, tag the current commit and push the tag to trigger the release
 release: _guard-unlinked
@@ -154,13 +163,15 @@ release: _guard-unlinked
 _setup_upstream_crds:
     #!/usr/bin/env bash
     set -euo pipefail
+    test -n "{{ HELMETICA_NAMESPACE }}" \
+        || { echo "chrysopoeia-controller-manager not found; is chrysopoeia installed?" >&2; exit 1; }
     kubectl apply -f - <<'EOF'
     # Install and configure upstream MariaDB crds, operator and cluster
     apiVersion: image.toolkit.fluxcd.io/v1
     kind: ImageRepository
     metadata:
       name: mariadb-crds-v26
-      namespace: hel-chrysopoeia
+      namespace: {{ HELMETICA_NAMESPACE }}
     spec:
       exclusionList:
       - ^.*\.sig$
@@ -173,7 +184,7 @@ _setup_upstream_crds:
     kind: OCIRepository
     metadata:
       name: mariadb-crds-v26
-      namespace: hel-chrysopoeia
+      namespace: {{ HELMETICA_NAMESPACE }}
     spec:
       interval: 12h
       provider: generic
@@ -186,7 +197,7 @@ _setup_upstream_crds:
     kind: ImageRepository
     metadata:
       name: mariadb-operator-v26
-      namespace: hel-chrysopoeia
+      namespace: {{ HELMETICA_NAMESPACE }}
     spec:
       exclusionList:
       - ^.*\.sig$
@@ -199,7 +210,7 @@ _setup_upstream_crds:
     kind: OCIRepository
     metadata:
       name: mariadb-operator-v26
-      namespace: hel-chrysopoeia
+      namespace: {{ HELMETICA_NAMESPACE }}
     spec:
       interval: 12h
       provider: generic
@@ -213,7 +224,7 @@ _setup_upstream_crds:
     metadata:
       annotations:
       name: mariadb-cluster-v26
-      namespace: hel-chrysopoeia
+      namespace: {{ HELMETICA_NAMESPACE }}
     spec:
       interval: 12h
       provider: generic
@@ -226,7 +237,7 @@ _setup_upstream_crds:
     kind: ImageRepository
     metadata:
       name: mariadb-cluster-v26
-      namespace: hel-chrysopoeia
+      namespace: {{ HELMETICA_NAMESPACE }}
     spec:
       exclusionList:
       - ^.*\.sig$
@@ -241,7 +252,7 @@ _setup_upstream_crds:
     metadata:
       annotations:
       name: v26.mariadb-crds
-      namespace: hel-chrysopoeia
+      namespace: {{ HELMETICA_NAMESPACE }}
     spec:
       crdNames:
         kind: MariaDBOperatorCRD
@@ -264,7 +275,7 @@ _setup_upstream_crds:
     metadata:
       annotations:
       name: v26.mariadb-operator
-      namespace: hel-chrysopoeia
+      namespace: {{ HELMETICA_NAMESPACE }}
     spec:
       crdNames:
         kind: MariaDBOperator
@@ -287,7 +298,7 @@ _setup_upstream_crds:
     metadata:
       annotations:
       name: v26.mariadb-cluster
-      namespace: hel-chrysopoeia
+      namespace: {{ HELMETICA_NAMESPACE }}
     spec:
       crdNames:
         kind: MariaDBCluster
@@ -379,7 +390,7 @@ _setup_upstream_crds:
           verbs:
             - '*'
     EOF
-    kubectl -n hel-chrysopoeia wait --for condition=Ready \
+    kubectl -n {{ HELMETICA_NAMESPACE }} wait --for condition=Ready \
         "claimdefinition/v26.mariadb-crds" --timeout 120s
     # deploy empty mariadb crd and operator for the crds to be properly installed
     kubectl apply -f - <<EOF
@@ -387,7 +398,7 @@ _setup_upstream_crds:
     kind: MariaDBOperatorCRD
     metadata:
       name: mariadb-crds
-      namespace: hel-chrysopoeia
+      namespace: {{ HELMETICA_NAMESPACE }}
     spec:
       approval:
         strategy: Automatic
@@ -397,17 +408,17 @@ _setup_upstream_crds:
           name: mariadb
       version: 26.6.0
     EOF
-    kubectl -n hel-chrysopoeia wait --for=jsonpath='{.status.releaseStatus}'=Ready \
+    kubectl -n {{ HELMETICA_NAMESPACE }} wait --for=jsonpath='{.status.releaseStatus}'=Ready \
         "mariadboperatorcrd/mariadb-crds" --timeout 120s
 
-    kubectl -n hel-chrysopoeia wait --for condition=Ready \
+    kubectl -n {{ HELMETICA_NAMESPACE }} wait --for condition=Ready \
         "claimdefinition/v26.mariadb-operator" --timeout 120s
     kubectl apply -f - <<EOF
     apiVersion: v26.mariadb-operator.helmetica-bundles.io/bundle
     kind: MariaDBOperator
     metadata:
       name: mariadb-operator
-      namespace: hel-chrysopoeia
+      namespace: {{ HELMETICA_NAMESPACE }}
     spec:
       approval:
         strategy: Automatic
@@ -424,11 +435,11 @@ _setup_upstream_crds:
           enabled: false
       version: 26.6.0
     EOF
-    kubectl -n hel-chrysopoeia wait --for=jsonpath='{.status.releaseStatus}'=Ready \
+    kubectl -n {{ HELMETICA_NAMESPACE }} wait --for=jsonpath='{.status.releaseStatus}'=Ready \
         "mariadboperator/mariadb-operator" --timeout 120s
 #    #This is only needed once we use spec.galera.agent.kubernetesAuth
 #    # Create clusterrolebinding to allow mariadb-operator to create clusterrolebindings
-#    namespace=$(kubectl -n hel-chrysopoeia get claim -o jsonpath="{.items[?(@.kind=='MariaDBOperator')].status.instanceNamespace}")
+#    namespace=$(kubectl -n {{ HELMETICA_NAMESPACE }} get claim -o jsonpath="{.items[?(@.kind=='MariaDBOperator')].status.instanceNamespace}")
 #    kubectl apply -f - <<EOF
 #    apiVersion: rbac.authorization.k8s.io/v1
 #    kind: ClusterRole
@@ -467,6 +478,8 @@ mix namespace="default":
 infuse namespace="default" id="": _setup_upstream_crds build
     #!/usr/bin/env bash
     set -euo pipefail
+    test -n "{{ HELMETICA_NAMESPACE }}" \
+        || { echo "chrysopoeia-controller-manager not found; is chrysopoeia installed?" >&2; exit 1; }
 
     suffix=""
     if [ -n "{{ id }}" ]; then suffix="-{{ id }}"; fi
@@ -492,7 +505,7 @@ infuse namespace="default" id="": _setup_upstream_crds build
     kind: OCIRepository
     metadata:
       name: {{ chart }}-v{{ major }}$suffix
-      namespace: hel-chrysopoeia
+      namespace: {{ HELMETICA_NAMESPACE }}
     spec:
       interval: 5m
       provider: generic
@@ -504,7 +517,7 @@ infuse namespace="default" id="": _setup_upstream_crds build
     kind: ImageRepository
     metadata:
       name: {{ chart }}$suffix
-      namespace: hel-chrysopoeia
+      namespace: {{ HELMETICA_NAMESPACE }}
     spec:
       exclusionList:
         - '^.*\.sig\$'
@@ -518,7 +531,7 @@ infuse namespace="default" id="": _setup_upstream_crds build
     kind: ClaimDefinition
     metadata:
       name: $group
-      namespace: hel-chrysopoeia
+      namespace: {{ HELMETICA_NAMESPACE }}
     spec:
       requires:
       - dependencyGroup:
@@ -537,15 +550,15 @@ infuse namespace="default" id="": _setup_upstream_crds build
           name: {{ chart }}$suffix
     EOF
 
-    kubectl -n hel-chrysopoeia wait --for condition=Ready \
+    kubectl -n {{ HELMETICA_NAMESPACE }} wait --for condition=Ready \
         "claimdefinition/$group" --timeout 120s
 
     # Manually bump the imagerepository
-    kubectl annotate imagerepository/{{ chart }}$suffix -n hel-chrysopoeia \
+    kubectl annotate imagerepository/{{ chart }}$suffix -n {{ HELMETICA_NAMESPACE }} \
         reconcile.fluxcd.io/requestedAt="$(date +%s)" --overwrite
 
     # and the ocirepository
-    kubectl annotate ocirepository/{{ chart }}-v{{ major }}$suffix -n hel-chrysopoeia \
+    kubectl annotate ocirepository/{{ chart }}-v{{ major }}$suffix -n {{ HELMETICA_NAMESPACE }} \
         reconcile.fluxcd.io/requestedAt="$(date +%s)" --overwrite
 
     # Chrysopoeia derives kind and plural from the chart, so both are read back.
@@ -595,9 +608,11 @@ strain namespace="default":
 
 _remove_upstream_crds:
     #!/usr/bin/env bash
+    test -n "{{ HELMETICA_NAMESPACE }}" \
+        || { echo "chrysopoeia-controller-manager not found; is chrysopoeia installed?" >&2; exit 1; }
     read -r -p "Do you want to remove upstream crds? [y/N] " answer
     [[ "$answer" =~ ^[Yy]$ ]] || exit 0
-    kubectl -n hel-chrysopoeia delete \
+    kubectl -n {{ HELMETICA_NAMESPACE }} delete \
         "mariadboperator/mariadb-operator" \
         "mariadboperatorcrds/mariadb-crds" \
         "claimdefinitions/v26.mariadb-cluster" \
@@ -615,6 +630,8 @@ _remove_upstream_crds:
 decant namespace="default" id="": && _remove_upstream_crds
     #!/usr/bin/env bash
     set -euo pipefail
+    test -n "{{ HELMETICA_NAMESPACE }}" \
+        || { echo "chrysopoeia-controller-manager not found; is chrysopoeia installed?" >&2; exit 1; }
 
     suffix=""
     if [ -n "{{ id }}" ]; then suffix="-{{ id }}"; fi
@@ -625,7 +642,7 @@ decant namespace="default" id="": && _remove_upstream_crds
     if [ -n "$crd" ]; then
         kubectl -n {{ namespace }} delete "$crd" {{ chart }} --ignore-not-found
     fi
-    kubectl -n hel-chrysopoeia delete \
+    kubectl -n {{ HELMETICA_NAMESPACE }} delete \
         "claimdefinition/$group" \
         "ocirepository/{{ chart }}-v{{ major }}$suffix" \
         "imagerepository/{{ chart }}$suffix" --ignore-not-found \
