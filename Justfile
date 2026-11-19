@@ -128,12 +128,22 @@ push: _guard-unlinked build
     helm push {{ chart }}-{{ version }}.tgz {{ REGISTRY }}
 
 # Read the reagent's purity: end-to-end test against a running athanor cluster (just ignite).
-touchstone: _setup_upstream_crds
-    {{ CHAINSAW_CMD }} test --config test/touchstone/chainsaw-config.yaml test/touchstone --quiet
-
-# Read the reagent's purity: end-to-end test against a running athanor cluster (just ignite).
-touchstone-pause: _setup_upstream_crds
-    {{ CHAINSAW_CMD }} test --config test/touchstone/chainsaw-config.yaml test/touchstone --quiet --pause-on-failure
+# The @ infront of set prevents the whole command to be echoed everytime it's invoked
+[arg('pause', short="p", value="true", help='Pauses Touchstone at failing steps')]
+[arg('verbose',short="v", value="true", help='Make chainsaw output verbose information')]
+[arg('tests', help='Choose which tests should be run, by default the whole suite is executed')]
+touchstone pause="false" verbose="false" *tests:
+    @set --; \
+    if [ -z "{{tests}}" ]; then \
+        set -- test/touchstone; \
+    else \
+        for arg in {{tests}}; do \
+            set -- "$@" "test/touchstone/$arg"; \
+        done; \
+    fi; \
+    {{CHAINSAW_CMD}} test --config test/touchstone/chainsaw-config.yaml "$@" \
+        {{ if verbose == 'true' { "" } else { "--quiet" } }} \
+        {{ if pause == 'true' { "--pause-on-failure" } else { "" } }}
 
 # Push main, tag the current commit and push the tag to trigger the release
 release: _guard-unlinked
