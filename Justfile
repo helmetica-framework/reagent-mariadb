@@ -22,7 +22,7 @@ CHAINSAW_VERSION := "v0.2.15"
 CHAINSAW_CMD := "go run github.com/kyverno/chainsaw@" + CHAINSAW_VERSION
 
 # renovate: datasource=github-releases depName=helm-unittest/helm-unittest
-UNITTEST_VERSION := "v1.1.2"
+UNITTEST_VERSION := "v1.2.1"
 
 # Pinned until we have a tag, renovate bumps it
 # renovate: datasource=go depName=github.com/helmetica-framework/transmuter
@@ -32,7 +32,7 @@ TRANSMUTER_CMD := "go run github.com/helmetica-framework/transmuter@" + TRANSMUT
 _default:
     @just --list
 
-# Write the values the cel: expressions compute, for every scenario (--check to verify instead)
+# Write the values the cel: expressions compute, for the defaults and every scenario (--check to verify instead)
 values *FLAGS:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -64,7 +64,7 @@ _unittest:
     helm plugin install https://github.com/helm-unittest/helm-unittest \
         --version {{ UNITTEST_VERSION }} "${verify[@]}"
 
-# Regenerate every snapshot, for every scenario
+# Regenerate every snapshot, for the defaults and every scenario
 gen-golden-all: values _unittest
     #!/usr/bin/env bash
     set -euo pipefail
@@ -135,14 +135,28 @@ push: _guard-unlinked build
     helm push {{ chart }}-{{ version }}.tgz {{ REGISTRY }}
 
 # Read the reagent's purity: end-to-end test against a running athanor cluster (just ignite).
-touchstone: _setup_upstream_crds
-    {{ CHAINSAW_CMD }} test --config test/touchstone/chainsaw-config.yaml test/touchstone --quiet \
-        --set-string helmeticaNamespace={{ HELMETICA_NAMESPACE }}
-
-# Read the reagent's purity: end-to-end test against a running athanor cluster (just ignite).
-touchstone-pause: _setup_upstream_crds
-    {{ CHAINSAW_CMD }} test --config test/touchstone/chainsaw-config.yaml test/touchstone --quiet \
-        --set-string helmeticaNamespace={{ HELMETICA_NAMESPACE }} --pause-on-failure
+# The @ infront of set prevents the whole command to be echoed everytime it's invoked
+[arg('pause', short="p", value="true", help='Pauses Touchstone at failing steps')]
+[arg('verbose',short="v", value="true", help='Make chainsaw output verbose information')]
+[arg('tests', help='Choose which tests should be run, by default the whole suite is executed')]
+[doc('Run the chainsaw test suite, use "just --usage touchstone" for more information"')]
+touchstone pause="false" verbose="false" *tests: _setup_upstream_crds
+    #!/usr/bin/env bash
+    set -euo pipefail
+    test -n "{{ HELMETICA_NAMESPACE }}" \
+        || { echo "chrysopoeia-controller-manager not found; is chrysopoeia installed?" >&2; exit 1; }
+    set --; \
+    if [ -z "{{tests}}" ]; then \
+        set -- test/touchstone; \
+    else \
+        for arg in {{tests}}; do \
+            set -- "$@" "test/touchstone/$arg"; \
+        done; \
+    fi; \
+    {{CHAINSAW_CMD}} test --config test/touchstone/chainsaw-config.yaml "$@" \
+        --set-string helmeticaNamespace={{ HELMETICA_NAMESPACE }} \
+        {{ if verbose == 'true' { "" } else { "--quiet" } }} \
+        {{ if pause == 'true' { "--pause-on-failure" } else { "" } }}
 
 # Push main, tag the current commit and push the tag to trigger the release
 release: _guard-unlinked
@@ -472,9 +486,11 @@ _setup_upstream_crds:
 
 # Install the reagent via helm install
 mix namespace="default":
-    transmuter mix --namespace {{ namespace }}
+    {{ TRANSMUTER_CMD }} mix --namespace {{ namespace }}
 
 # Install the reagent via helmetica into a running athanor cluster (just ignite).
+# An id, when given, is folded into the API group and the source names, so a
+# touchstone can run multiple tests in parallel without clashing.
 infuse namespace="default" id="": _setup_upstream_crds build
     #!/usr/bin/env bash
     set -euo pipefail
@@ -645,7 +661,7 @@ decant namespace="default" id="": && _remove_upstream_crds
     kubectl -n {{ HELMETICA_NAMESPACE }} delete \
         "claimdefinition/$group" \
         "ocirepository/{{ chart }}-v{{ major }}$suffix" \
-        "imagerepository/{{ chart }}$suffix" --ignore-not-found \
+        "imagerepository/{{ chart }}$suffix" --ignore-not-found
     # Chrysopoeia owns the generated CRD, dropping its source does not remove it.
     # The CRD is cluster wide: this also takes any instance of this chart that
     # someone else claimed in another namespace.
