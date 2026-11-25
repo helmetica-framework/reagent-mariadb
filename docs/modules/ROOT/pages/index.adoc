@@ -1,0 +1,11 @@
+= MariaDB
+
+A MariaDB service, built on the `vshnmariadb` chart as its prima materia.
+
+TODO: what you get when you order one.
+
+== Order one
+
+include::partial$order-example.adoc[opts=optional]
+
+Every value you can set is listed under xref:references/parameters.adoc[Parameters].

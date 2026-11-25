@@ -1,0 +1,3 @@
+= Expose outside the cluster
+
+TODO: how to make the service reachable from outside the cluster, and who may connect.
