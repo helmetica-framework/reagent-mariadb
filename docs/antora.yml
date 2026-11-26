@@ -1,0 +1,6 @@
+name: reagent-mariadb
+title: MariaDB
+version: ~
+start_page: ROOT:index.adoc
+nav:
+- modules/ROOT/nav.adoc

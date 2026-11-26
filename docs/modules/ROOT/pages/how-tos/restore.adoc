@@ -1,0 +1,3 @@
+= Restore a backup
+
+TODO: how to list backups and restore one.

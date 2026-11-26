@@ -1,0 +1,3 @@
+= Change the plan
+
+TODO: how to resize the instance, and what happens while it changes.
